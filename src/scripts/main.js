@@ -252,7 +252,13 @@ function initLanyardModal() {
   const context = canvas.getContext("2d");
   if (!context) return;
 
-  const points = Array.from({ length: 13 }, () => ({
+  const avatarImage = new Image();
+  avatarImage.src = "assets/profile/li-wupeng-avatar.png";
+  avatarImage.addEventListener("load", () => {
+    if (width && height) draw();
+  }, { once: true });
+
+  const points = Array.from({ length: 10 }, () => ({
     x: 0,
     y: 0,
     oldX: 0,
@@ -272,15 +278,17 @@ function initLanyardModal() {
   let lockedScrollX = 0;
   let lockedScrollY = 0;
   let physicsAccumulator = 0;
+  let anchorX = 0;
+  let prewarmed = false;
   const physicsStep = 1 / 60;
 
-  function getAnchorX() {
+  function updateAnchorX() {
     const linkRect = contactLink.getBoundingClientRect();
-    return Math.max(36, Math.min(width - 36, linkRect.left + linkRect.width * 0.5));
+    anchorX = Math.max(36, Math.min(width - 36, linkRect.left + linkRect.width * 0.5));
   }
 
   function resetSimulation() {
-    const anchorX = getAnchorX();
+    updateAnchorX();
     const anchorY = 0;
     segmentLength = Math.max(18, Math.min(26, height * 0.028));
 
@@ -304,7 +312,7 @@ function initLanyardModal() {
 
   function resizeLanyard() {
     const rect = canvas.getBoundingClientRect();
-    const nextDpr = Math.min(window.devicePixelRatio || 1, 1.35);
+    const nextDpr = 1;
     const nextWidth = Math.max(1, Math.round(rect.width));
     const nextHeight = Math.max(1, Math.round(rect.height));
     if (width === nextWidth && height === nextHeight && dpr === nextDpr) return false;
@@ -315,6 +323,9 @@ function initLanyardModal() {
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "low";
+    updateAnchorX();
     resetSimulation();
     return true;
   }
@@ -381,8 +392,8 @@ function initLanyardModal() {
       card.y += velocityY + gravity;
     }
 
-    for (let iteration = 0; iteration < 6; iteration += 1) {
-      points[0].x = getAnchorX();
+    for (let iteration = 0; iteration < 4; iteration += 1) {
+      points[0].x = anchorX;
       points[0].y = 0;
       for (let index = 0; index < points.length - 1; index += 1) {
         constrain(points[index], points[index + 1], segmentLength, index === 0);
@@ -413,6 +424,25 @@ function initLanyardModal() {
     ctx.roundRect(x, y, w, h, r);
   }
 
+  function drawImageCover(image, x, y, w, h, targetContext = context) {
+    const imageRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
+    const frameRatio = w / Math.max(1, h);
+    let sourceWidth = image.naturalWidth;
+    let sourceHeight = image.naturalHeight;
+    let sourceX = 0;
+    let sourceY = 0;
+
+    if (imageRatio > frameRatio) {
+      sourceWidth = image.naturalHeight * frameRatio;
+      sourceX = (image.naturalWidth - sourceWidth) * 0.5;
+    } else {
+      sourceHeight = image.naturalWidth / frameRatio;
+      sourceY = (image.naturalHeight - sourceHeight) * 0.32;
+    }
+
+    targetContext.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, w, h);
+  }
+
   function drawCard() {
     context.save();
     context.translate(card.x, card.y);
@@ -426,8 +456,8 @@ function initLanyardModal() {
     gradient.addColorStop(1, "#111");
 
     context.shadowColor = "rgba(0,0,0,0.55)";
-    context.shadowBlur = 34;
-    context.shadowOffsetY = 18;
+    context.shadowBlur = 18;
+    context.shadowOffsetY = 12;
     roundedRect(context, x, y, card.width, card.height, 7);
     context.fillStyle = gradient;
     context.fill();
@@ -439,7 +469,7 @@ function initLanyardModal() {
     context.save();
     context.strokeStyle = "rgba(255,255,255,0.08)";
     context.lineWidth = 1;
-    const gridSize = Math.max(8, card.width * 0.035);
+    const gridSize = Math.max(12, card.width * 0.052);
     for (let gx = x + gridSize; gx < x + card.width; gx += gridSize) {
       context.beginPath();
       context.moveTo(gx, y);
@@ -468,23 +498,15 @@ function initLanyardModal() {
     const portraitY = y + card.height * 0.29;
     const portraitW = card.width * 0.45;
     const portraitH = card.height * 0.37;
+    roundedRect(context, portraitX, portraitY, portraitW, portraitH, 2);
+    context.save();
+    context.clip();
     context.fillStyle = "#e8e8e8";
     context.fillRect(portraitX, portraitY, portraitW, portraitH);
-    context.fillStyle = "#161616";
-    context.beginPath();
-    context.arc(portraitX + portraitW * 0.5, portraitY + portraitH * 0.32, portraitW * 0.2, 0, Math.PI * 2);
-    context.fill();
-    context.beginPath();
-    context.ellipse(
-      portraitX + portraitW * 0.5,
-      portraitY + portraitH * 0.87,
-      portraitW * 0.34,
-      portraitH * 0.38,
-      0,
-      0,
-      Math.PI * 2
-    );
-    context.fill();
+    if (avatarImage.complete && avatarImage.naturalWidth) {
+      drawImageCover(avatarImage, portraitX, portraitY, portraitW, portraitH);
+    }
+    context.restore();
 
     context.fillStyle = "#fff";
     context.font = `700 ${Math.round(card.width * 0.045)}px Arial, sans-serif`;
@@ -580,7 +602,7 @@ function initLanyardModal() {
     context.setLineDash([1.2, 2.6]);
     context.strokeStyle = "rgba(255,255,255,0.16)";
     context.lineWidth = Math.max(1, bandWidth * 0.08);
-    for (let offset = -bandWidth * 0.36; offset <= bandWidth * 0.36; offset += bandWidth * 0.12) {
+    for (let offset = -bandWidth * 0.36; offset <= bandWidth * 0.36; offset += bandWidth * 0.22) {
       context.beginPath();
       context.moveTo(points[0].x + offset, points[0].y);
       for (let index = 1; index < points.length; index += 1) {
@@ -613,7 +635,6 @@ function initLanyardModal() {
   function frame(now) {
     if (!running) return;
     raf = 0;
-    resizeLanyard();
     const delta = lastTime ? Math.min((now - lastTime) / 1000, 0.05) : physicsStep;
     lastTime = now;
     if (dragging || quietFrames < 18) {
@@ -706,15 +727,18 @@ function initLanyardModal() {
     contactLink.classList.add("is-active");
     contactLink.setAttribute("aria-expanded", "true");
     contactLink.setAttribute("aria-label", "收起");
-    history.replaceState(null, "", `${location.pathname}${location.search}`);
     running = true;
     lastTime = 0;
     quietFrames = 0;
     physicsAccumulator = 0;
     const resized = resizeLanyard();
+    updateAnchorX();
     if (!resized) resetSimulation();
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(frame);
+    window.setTimeout(() => {
+      history.replaceState(null, "", `${location.pathname}${location.search}`);
+    }, 0);
   }
 
   function closeStage() {
@@ -738,6 +762,7 @@ function initLanyardModal() {
   });
   window.addEventListener("resize", () => {
     resizeLanyard();
+    updateAnchorX();
     if (running && !raf) {
       lastTime = 0;
       quietFrames = 0;
@@ -746,9 +771,14 @@ function initLanyardModal() {
   }, { passive: true });
 
   const prewarm = () => {
+    if (prewarmed || running) return;
     resizeLanyard();
     draw();
+    prewarmed = true;
   };
+  contactLink.addEventListener("pointerenter", prewarm, { passive: true });
+  contactLink.addEventListener("focus", prewarm);
+  contactLink.addEventListener("touchstart", prewarm, { passive: true });
   if ("requestIdleCallback" in window) {
     window.requestIdleCallback(prewarm, { timeout: 800 });
   } else {
@@ -884,10 +914,13 @@ function initProjectModal() {
   const modalMedia = modal?.querySelector(".project-modal-media");
   const modalTitle = modal?.querySelector("#project-modal-title");
   const closeButton = modal?.querySelector(".project-modal-close");
+  const scaleButtons = [...(modal?.querySelectorAll(".project-modal-scale-button") || [])];
   const cards = [...document.querySelectorAll(".bounce-card, .project-tile")];
   if (!modal || !panel || !modalMedia || !modalTitle || !closeButton || !cards.length) return;
 
   let previousFocus = null;
+  let scaleFrame = 0;
+  let modalImageObserver = null;
   const projectGalleries = {
     "meishang-app": {
       title: "美上云端 App",
@@ -932,7 +965,67 @@ function initProjectModal() {
     },
   };
 
+  function setModalScale(scale = "50") {
+    const normalizedScale = ["50", "75", "100"].includes(String(scale)) ? String(scale) : "50";
+    cancelAnimationFrame(scaleFrame);
+    scaleFrame = requestAnimationFrame(() => {
+      panel.style.setProperty("--project-modal-scale", `${normalizedScale}%`);
+      scaleButtons.forEach((button) => {
+        const isActive = button.dataset.scale === normalizedScale;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+    });
+  }
+
+  function disconnectModalImageObserver() {
+    modalImageObserver?.disconnect();
+    modalImageObserver = null;
+  }
+
+  function loadProjectFrame(frame) {
+    if (!frame || frame.dataset.loaded === "true") return;
+    frame.dataset.loaded = "true";
+    frame.replaceChildren(
+      Object.assign(document.createElement("img"), {
+        src: frame.dataset.src,
+        alt: frame.dataset.alt,
+        width: Number(frame.dataset.width) || 1920,
+        height: Number(frame.dataset.height) || 1080,
+        loading: frame.dataset.index === "0" ? "eager" : "lazy",
+        decoding: "async",
+        fetchPriority: frame.dataset.index === "0" ? "high" : "low",
+      })
+    );
+  }
+
+  function observeProjectFrames() {
+    disconnectModalImageObserver();
+    const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
+    if (!frames.length) return;
+
+    loadProjectFrame(frames[0]);
+    if (!("IntersectionObserver" in window)) {
+      frames.slice(1).forEach(loadProjectFrame);
+      return;
+    }
+
+    modalImageObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          loadProjectFrame(entry.target);
+          modalImageObserver?.unobserve(entry.target);
+        });
+      },
+      { root: modalMedia, rootMargin: "900px 0px", threshold: 0.01 }
+    );
+
+    frames.slice(1).forEach((frame) => modalImageObserver.observe(frame));
+  }
+
   function renderSingleImage(image) {
+    disconnectModalImageObserver();
     modalMedia.className = "project-modal-media project-modal-media--single";
     modalMedia.replaceChildren(
       Object.assign(document.createElement("img"), {
@@ -945,19 +1038,23 @@ function initProjectModal() {
   }
 
   function renderGallery(project) {
+    disconnectModalImageObserver();
     modalMedia.className = "project-modal-media project-modal-media--gallery";
     modalMedia.replaceChildren(
-      ...project.images.map(({ src, width, height }, index) =>
-        Object.assign(document.createElement("img"), {
-          src,
-          alt: `${project.title} 项目详情第 ${index + 1} 部分`,
-          width,
-          height,
-          loading: index === 0 ? "eager" : "lazy",
-          decoding: "async",
-        })
-      )
+      ...project.images.map(({ src, width, height }, index) => {
+        const frame = document.createElement("div");
+        frame.className = "project-modal-frame";
+        frame.dataset.src = src;
+        frame.dataset.alt = `${project.title} 项目详情第 ${index + 1} 部分`;
+        frame.dataset.width = String(width);
+        frame.dataset.height = String(height);
+        frame.dataset.index = String(index);
+        frame.dataset.loaded = "false";
+        frame.style.setProperty("--project-image-ratio", `${width} / ${height}`);
+        return frame;
+      })
     );
+    observeProjectFrames();
   }
 
   function openModal(card) {
@@ -974,6 +1071,7 @@ function initProjectModal() {
       modalTitle.textContent = image.alt.replace(/设计项目|项目视觉|形象设计项目/g, "");
     }
     modalMedia.scrollTop = 0;
+    setModalScale("50");
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("project-modal-open");
@@ -984,6 +1082,8 @@ function initProjectModal() {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("project-modal-open");
+    cancelAnimationFrame(scaleFrame);
+    disconnectModalImageObserver();
     window.setTimeout(() => {
       modalMedia.replaceChildren();
       previousFocus?.focus?.();
@@ -1003,6 +1103,9 @@ function initProjectModal() {
   });
 
   closeButton.addEventListener("click", closeModal);
+  scaleButtons.forEach((button) => {
+    button.addEventListener("click", () => setModalScale(button.dataset.scale));
+  });
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
   });
@@ -1120,13 +1223,11 @@ initTextType();
 function getRevealElements(panel) {
   if (panel.classList.contains("hero") || panel.matches("#mission")) return [];
 
-  const selectors = panel.matches("#news")
-    ? [".flowing-menu-label", ".flowing-menu-item"]
-    : panel.matches("#works")
-      ? [".resume-header", ".resume-block"]
-      : panel.matches("#services")
-        ? [".service-gallery"]
-        : [":scope > *"];
+  const selectors = panel.matches("#works")
+    ? [".resume-header", ".resume-block"]
+    : panel.matches("#services")
+      ? [".service-gallery"]
+      : [":scope > *"];
 
   return selectors.flatMap((selector) => [...panel.querySelectorAll(selector)]);
 }
