@@ -490,9 +490,11 @@ function initLanyardModal() {
     context.fillText("李吴鹏", x + pad, y + card.height * 0.17);
 
     context.fillStyle = "rgba(255,255,255,0.95)";
-    context.font = `700 ${Math.round(card.width * 0.052)}px Arial, sans-serif`;
-    context.fillText("UX/UI DESIGNER", x + pad, y + card.height * 0.235);
-    context.fillText("& PRODUCT BUILDER", x + pad, y + card.height * 0.272);
+    context.font = `700 ${Math.round(card.width * 0.052 + 2)}px Arial, sans-serif`;
+    context.fillText("135 9387 4603", x + pad, y + card.height * 0.235);
+    context.fillStyle = "rgba(255,255,255,0.66)";
+    context.font = `400 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
+    context.fillText("WUHAN · CHINA · 2026", x + pad, y + card.height * 0.272);
 
     const portraitX = x + card.width * 0.47;
     const portraitY = y + card.height * 0.29;
@@ -510,7 +512,7 @@ function initLanyardModal() {
 
     context.fillStyle = "#fff";
     context.font = `700 ${Math.round(card.width * 0.045)}px Arial, sans-serif`;
-    context.fillText("李吴鹏", x + pad, y + card.height * 0.38);
+    context.fillText("Liwupeng", x + pad, y + card.height * 0.38);
     context.fillStyle = "rgba(255,255,255,0.62)";
     context.font = `400 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
     ["UI DESIGN", "UX RESEARCH", "DESIGN SYSTEM", "PROTOTYPE"].forEach((line, index) => {
@@ -522,12 +524,10 @@ function initLanyardModal() {
     context.fillText("AIG CREATOR", x + pad, y + card.height * 0.72);
     context.fillText("& AI BUILDER", x + pad, y + card.height * 0.76);
 
-    context.fillStyle = "rgba(255,255,255,0.9)";
-    context.font = `700 ${Math.round(card.width * 0.045)}px Arial, sans-serif`;
-    context.fillText("135 9387 4603", x + pad, y + card.height * 0.88);
-    context.fillStyle = "rgba(255,255,255,0.66)";
-    context.font = `400 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
-    context.fillText("WUHAN · CHINA · 2026", x + pad, y + card.height * 0.92);
+    context.fillStyle = "rgba(255,255,255,0.95)";
+    context.font = `700 ${Math.round(card.width * 0.052)}px Arial, sans-serif`;
+    context.fillText("UX/UI DESIGNER", x + pad, y + card.height * 0.88);
+    context.fillText("& PRODUCT BUILDER", x + pad, y + card.height * 0.92);
 
     context.fillStyle = "#fff";
     for (let row = 0; row < 7; row += 1) {
@@ -1093,13 +1093,18 @@ function initProjectModal() {
   cards.forEach((card) => {
     card.tabIndex = 0;
     card.setAttribute("role", "button");
-    card.addEventListener("click", () => openModal(card));
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         openModal(card);
       }
     });
+  });
+
+  document.addEventListener("click", (event) => {
+    const card = event.target.closest(".bounce-card, .project-tile");
+    if (!card) return;
+    openModal(card);
   });
 
   closeButton.addEventListener("click", closeModal);
@@ -1123,11 +1128,24 @@ function initServiceGallery() {
   const columns = [...gallery?.querySelectorAll(".service-column") || []];
   if (!gallery || !section || !columns.length) return;
 
+  columns.forEach((column) => {
+    const originals = [...column.children];
+    while (column.children.length < 8) {
+      originals.forEach((tile) => {
+        if (column.children.length >= 8) return;
+        const clone = tile.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        clone.tabIndex = -1;
+        column.appendChild(clone);
+      });
+    }
+  });
+
   if (!window.gsap || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   const setters = columns.map((column) => ({
     speed: Number.parseFloat(column.dataset.speed || "0"),
-    setY: gsap.quickSetter(column, "y", "px")
+    setX: gsap.quickSetter(column, "x", "px")
   }));
 
   let frame = 0;
@@ -1136,7 +1154,7 @@ function initServiceGallery() {
     const progress = document.body.classList.contains("gsap-swipe-enabled")
       ? section.scrollTop
       : Math.max(0, -gallery.getBoundingClientRect().top + window.innerHeight * 0.15);
-    setters.forEach(({ speed, setY }) => setY(progress * speed));
+    setters.forEach(({ speed, setX }) => setX(progress * speed));
   }
 
   const scrollTarget = document.body.classList.contains("gsap-swipe-enabled")
