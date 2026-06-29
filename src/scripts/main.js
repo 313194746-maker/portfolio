@@ -965,8 +965,8 @@ function initProjectModal() {
     },
   };
 
-  function setModalScale(scale = "50") {
-    const normalizedScale = ["50", "75", "100"].includes(String(scale)) ? String(scale) : "50";
+  function setModalScale(scale = "75") {
+    const normalizedScale = ["50", "75", "100"].includes(String(scale)) ? String(scale) : "75";
     cancelAnimationFrame(scaleFrame);
     scaleFrame = requestAnimationFrame(() => {
       panel.style.setProperty("--project-modal-scale", `${normalizedScale}%`);
@@ -1031,8 +1031,8 @@ function initProjectModal() {
       Object.assign(document.createElement("img"), {
         src: image.currentSrc || image.src,
         alt: image.alt,
-        width: 1920,
-        height: 1080,
+        width: Number(image.getAttribute("width")) || image.naturalWidth || 1920,
+        height: Number(image.getAttribute("height")) || image.naturalHeight || 1080,
       })
     );
   }
@@ -1062,24 +1062,33 @@ function initProjectModal() {
     if (!image) return;
 
     previousFocus = document.activeElement;
-    const project = projectGalleries[card.dataset.project];
+    const shouldOpenCurrentImage = card.classList.contains("project-tile");
+    const project = shouldOpenCurrentImage ? null : projectGalleries[card.dataset.project];
     if (project) {
+      modal.classList.add("project-modal--gallery");
+      modal.classList.remove("project-modal--single");
       renderGallery(project);
       modalTitle.textContent = project.title;
+      setModalScale("50");
     } else {
+      modal.classList.add("project-modal--single");
+      modal.classList.remove("project-modal--gallery");
       renderSingleImage(image);
       modalTitle.textContent = image.alt.replace(/设计项目|项目视觉|形象设计项目/g, "");
+      setModalScale("75");
     }
     modalMedia.scrollTop = 0;
-    setModalScale("50");
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("project-modal-open");
     closeButton.focus();
   }
 
+  window.__openProjectModalForCard = openModal;
+
   function closeModal() {
     modal.classList.remove("is-open");
+    modal.classList.remove("project-modal--gallery", "project-modal--single");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("project-modal-open");
     cancelAnimationFrame(scaleFrame);
@@ -1102,6 +1111,10 @@ function initProjectModal() {
   });
 
   document.addEventListener("click", (event) => {
+    if (window.__serviceGalleryDragged) {
+      window.__serviceGalleryDragged = false;
+      return;
+    }
     const card = event.target.closest(".bounce-card, .project-tile");
     if (!card) return;
     openModal(card);
@@ -1128,18 +1141,164 @@ function initServiceGallery() {
   const columns = [...gallery?.querySelectorAll(".service-column") || []];
   if (!gallery || !section || !columns.length) return;
 
-  columns.forEach((column) => {
+  let dragging = false;
+  let dragStartX = 0;
+  let dragStartScrollLeft = 0;
+  let dragDistance = 0;
+  let lockedGalleryScrollY = 0;
+  let pressedTile = null;
+  let lockedSectionScrollTop = 0;
+
+  function lockGalleryPageScroll() {
+    lockedGalleryScrollY = window.scrollY;
+    lockedSectionScrollTop = section.scrollTop;
+    document.body.classList.add("service-gallery-dragging");
+  }
+
+  function restoreGalleryVerticalScroll() {
+    if (Math.abs(window.scrollY - lockedGalleryScrollY) > 1) {
+      window.scrollTo(window.scrollX, lockedGalleryScrollY);
+    }
+    if (Math.abs(section.scrollTop - lockedSectionScrollTop) > 1) {
+      section.scrollTop = lockedSectionScrollTop;
+    }
+  }
+
+  function unlockGalleryPageScroll() {
+    document.body.classList.remove("service-gallery-dragging");
+    restoreGalleryVerticalScroll();
+  }
+
+  gallery.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    dragging = true;
+    dragStartX = event.clientX;
+    dragStartScrollLeft = gallery.scrollLeft;
+    dragDistance = 0;
+    pressedTile = event.target.closest(".project-tile");
+    lockGalleryPageScroll();
+    gallery.classList.add("is-dragging");
+    gallery.setPointerCapture(event.pointerId);
+  });
+
+  gallery.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    event.preventDefault();
+    const deltaX = event.clientX - dragStartX;
+    dragDistance = Math.max(dragDistance, Math.abs(deltaX));
+    gallery.scrollLeft = dragStartScrollLeft - deltaX;
+    restoreGalleryVerticalScroll();
+  }, { passive: false });
+
+  gallery.addEventListener("wheel", (event) => {
+    const horizontalDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+      ? event.deltaX
+      : event.deltaY;
+    event.preventDefault();
+    event.stopPropagation();
+    gallery.scrollLeft += horizontalDelta;
+    normalizeGalleryLoop();
+  }, { passive: false });
+
+  function stopDrag(event) {
+    if (!dragging) return;
+    dragging = false;
+    gallery.classList.remove("is-dragging");
+    unlockGalleryPageScroll();
+    if (gallery.hasPointerCapture(event.pointerId)) gallery.releasePointerCapture(event.pointerId);
+    if (dragDistance > 6) {
+      window.__serviceGalleryDragged = true;
+    } else if (pressedTile) {
+      event.preventDefault();
+      window.__serviceGalleryDragged = true;
+      window.__openProjectModalForCard?.(pressedTile);
+    }
+    pressedTile = null;
+  }
+
+  gallery.addEventListener("pointerup", stopDrag);
+  gallery.addEventListener("pointercancel", stopDrag);
+  gallery.addEventListener("lostpointercapture", () => {
+    if (dragging) unlockGalleryPageScroll();
+    dragging = false;
+    pressedTile = null;
+    gallery.classList.remove("is-dragging");
+  });
+
+  const loopColumns = columns.map((column) => {
     const originals = [...column.children];
-    while (column.children.length < 8) {
+    const originalCount = originals.length;
+    const minimumChildren = originalCount * 5;
+    while (column.children.length < minimumChildren) {
       originals.forEach((tile) => {
-        if (column.children.length >= 8) return;
+        if (column.children.length >= minimumChildren) return;
         const clone = tile.cloneNode(true);
         clone.setAttribute("aria-hidden", "true");
         clone.tabIndex = -1;
+        clone.dataset.serviceClone = "true";
         column.appendChild(clone);
       });
     }
+    return { column, originalCount };
   });
+
+  let loopWidth = 0;
+  let autoplayFrame = 0;
+  let autoplayPreviousTime = 0;
+  let autoplayPaused = false;
+
+  function measureLoopWidth() {
+    const widths = loopColumns.map(({ column, originalCount }) => {
+      const children = [...column.children];
+      const first = children[0];
+      const firstClone = children[originalCount];
+      if (!first || !firstClone) return 0;
+      return firstClone.offsetLeft - first.offsetLeft;
+    });
+    loopWidth = Math.max(...widths, 0);
+    if (loopWidth > 0 && gallery.scrollLeft < 1) gallery.scrollLeft = loopWidth;
+  }
+
+  function normalizeGalleryLoop() {
+    if (!loopWidth) return;
+    while (gallery.scrollLeft <= 1) gallery.scrollLeft += loopWidth;
+    while (gallery.scrollLeft >= loopWidth * 2) gallery.scrollLeft -= loopWidth;
+  }
+
+  function playGallery(timestamp) {
+    if (!autoplayPreviousTime) autoplayPreviousTime = timestamp;
+    const deltaSeconds = Math.min(40, timestamp - autoplayPreviousTime) / 1000;
+    autoplayPreviousTime = timestamp;
+
+    if (
+      loopWidth > 0 &&
+      !dragging &&
+      !autoplayPaused &&
+      !document.body.classList.contains("project-modal-open") &&
+      !document.hidden
+    ) {
+      gallery.scrollLeft -= 34 * deltaSeconds;
+      normalizeGalleryLoop();
+    }
+
+    autoplayFrame = window.requestAnimationFrame(playGallery);
+  }
+
+  measureLoopWidth();
+  gallery.addEventListener("pointerenter", () => {
+    autoplayPaused = true;
+  });
+  gallery.addEventListener("pointerleave", () => {
+    autoplayPaused = false;
+    autoplayPreviousTime = 0;
+  });
+  window.addEventListener("resize", () => {
+    window.requestAnimationFrame(() => {
+      measureLoopWidth();
+      normalizeGalleryLoop();
+    });
+  }, { passive: true });
+  autoplayFrame = window.requestAnimationFrame(playGallery);
 
   if (!window.gsap || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -1466,7 +1625,8 @@ function initSwipeSections() {
   function requestPanel(direction) {
     if (
       document.body.classList.contains("lanyard-open") ||
-      document.body.classList.contains("project-modal-open")
+      document.body.classList.contains("project-modal-open") ||
+      document.body.classList.contains("service-gallery-dragging")
     ) return;
     if (animating || canScrollActivePanel(direction)) return;
     goToPanel(currentIndex + direction, direction);
