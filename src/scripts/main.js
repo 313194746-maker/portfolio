@@ -2031,6 +2031,7 @@ function initSwipeSections() {
     panels.forEach((panel, panelIndex) => {
       const active = panelIndex === index;
       panel.classList.toggle("is-active", active);
+      if (!active) panel.classList.remove("is-entering");
       panel.setAttribute("aria-hidden", active ? "false" : "true");
       panel.inert = !active;
     });
@@ -2104,6 +2105,7 @@ function initSwipeSections() {
     }
     nextPanel.inert = false;
     nextPanel.setAttribute("aria-hidden", "false");
+    nextPanel.classList.add("is-entering");
 
     gsap.set(nextPanel, {
       autoAlpha: 1,
@@ -2123,6 +2125,8 @@ function initSwipeSections() {
       onComplete: () => {
         currentIndex = nextIndex;
         animating = false;
+        nextPanel.classList.remove("is-entering");
+        currentPanel.classList.remove("is-entering");
         gsap.set(currentPanel, { autoAlpha: 0, zIndex: 1 });
         updateActiveState(currentIndex, !nextPanel.matches("#mission"));
 

@@ -1084,9 +1084,8 @@ body.gsap-swipe-enabled .resume .resume-profile,
 body.gsap-swipe-enabled .resume .resume-about,
 body.gsap-swipe-enabled .resume .resume-details {
   opacity: 0;
-  filter: blur(10px);
-  transition: opacity 420ms ease, filter 420ms ease;
-  will-change: opacity, filter;
+  transition: opacity 360ms ease;
+  will-change: opacity;
 }
 
 body.gsap-swipe-enabled .resume .resume-about {
@@ -1099,9 +1098,11 @@ body.gsap-swipe-enabled .resume .resume-details {
 
 body.gsap-swipe-enabled .resume.is-active .resume-profile,
 body.gsap-swipe-enabled .resume.is-active .resume-about,
-body.gsap-swipe-enabled .resume.is-active .resume-details {
+body.gsap-swipe-enabled .resume.is-active .resume-details,
+body.gsap-swipe-enabled .resume.is-entering .resume-profile,
+body.gsap-swipe-enabled .resume.is-entering .resume-about,
+body.gsap-swipe-enabled .resume.is-entering .resume-details {
   opacity: 1;
-  filter: blur(0);
 }
 
 .resume-detail {
