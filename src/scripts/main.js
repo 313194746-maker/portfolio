@@ -952,10 +952,13 @@ function initProjectModal() {
     "audience-saas": {
       title: "人群经营 SaaS",
       images: [
-        { src: "assets/projects/audience-saas/1.webp", width: 1920, height: 4192 },
-        { src: "assets/projects/audience-saas/2.webp", width: 1920, height: 978 },
-        { src: "assets/projects/audience-saas/3.webp", width: 1920, height: 3994 },
-        { src: "assets/projects/audience-saas/4.webp", width: 1920, height: 1190 },
+        { src: "assets/projects/audience-saas/1.webp", width: 1920, height: 1183 },
+        { src: "assets/projects/audience-saas/2.webp", width: 1920, height: 3009 },
+        { src: "assets/projects/audience-saas/3.webp", width: 1920, height: 978 },
+        { src: "assets/projects/audience-saas/4.webp", width: 1920, height: 1189 },
+        { src: "assets/projects/audience-saas/5.webp", width: 1920, height: 1179 },
+        { src: "assets/projects/audience-saas/6.webp", width: 1920, height: 1626 },
+        { src: "assets/projects/audience-saas/7.webp", width: 1920, height: 1190 },
       ],
     },
     "slsg-miniapp": {
