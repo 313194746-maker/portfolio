@@ -931,6 +931,9 @@ function initProjectModal() {
   let scaleFrame = 0;
   let thumbFrame = 0;
   let modalImageObserver = null;
+  let modalFrames = [];
+  let modalFrameMetrics = [];
+  let modalMediaPadding = { top: 0, right: 0, bottom: 0, left: 0 };
   const projectGalleries = {
     "meishang-app": {
       title: "美上云端 App",
@@ -995,18 +998,49 @@ function initProjectModal() {
         button.classList.toggle("is-active", isActive);
         button.setAttribute("aria-pressed", String(isActive));
       });
+      refreshModalFrameMetrics();
       updateActiveModalThumb();
     });
   }
 
+  function readModalMediaPadding() {
+    const styles = window.getComputedStyle(modalMedia);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+      bottom: Number.parseFloat(styles.paddingBottom) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+    };
+  }
+
+  function refreshModalFrameMetrics() {
+    modalFrames = [...modalMedia.querySelectorAll(".project-modal-frame")];
+    if (!modalFrames.length) {
+      modalFrameMetrics = [];
+      return;
+    }
+
+    modalMediaPadding = readModalMediaPadding();
+    const contentWidth = Math.max(1, modalMedia.clientWidth - modalMediaPadding.left - modalMediaPadding.right);
+    let top = 0;
+    modalFrameMetrics = modalFrames.map((frame, index) => {
+      const width = Number(frame.dataset.width) || 1920;
+      const height = Number(frame.dataset.height) || 1080;
+      const frameHeight = contentWidth * (height / Math.max(1, width));
+      const metric = { index, top, bottom: top + frameHeight };
+      top = metric.bottom;
+      return metric;
+    });
+  }
+
   function setActiveModalThumb(index = 0) {
-    const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
-    const clampedIndex = Math.max(0, Math.min(frames.length - 1, index));
-    const scrollableHeight = Math.max(1, modalMedia.scrollHeight - modalMedia.clientHeight);
-    const activeFrame = frames[clampedIndex];
-    const nextFrame = frames[clampedIndex + 1];
-    const top = activeFrame ? (activeFrame.offsetTop / scrollableHeight) * 100 : 0;
-    const bottom = nextFrame ? (nextFrame.offsetTop / scrollableHeight) * 100 : 100;
+    if (!modalFrameMetrics.length) refreshModalFrameMetrics();
+    const clampedIndex = Math.max(0, Math.min(modalFrameMetrics.length - 1, index));
+    const activeFrame = modalFrameMetrics[clampedIndex];
+    const nextFrame = modalFrameMetrics[clampedIndex + 1];
+    const totalHeight = Math.max(1, modalFrameMetrics.at(-1)?.bottom || 1);
+    const top = activeFrame ? (activeFrame.top / totalHeight) * 100 : 0;
+    const bottom = nextFrame ? (nextFrame.top / totalHeight) * 100 : 100;
     const indicatorTop = Math.max(0, Math.min(94, top));
     const indicatorHeight = Math.max(6, Math.min(100 - indicatorTop, bottom - top));
 
@@ -1018,18 +1052,17 @@ function initProjectModal() {
   function updateActiveModalThumb() {
     cancelAnimationFrame(thumbFrame);
     thumbFrame = requestAnimationFrame(() => {
-      const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
-      if (!frames.length) return;
+      if (!modalFrameMetrics.length) refreshModalFrameMetrics();
+      if (!modalFrameMetrics.length) return;
 
-      const mediaRect = modalMedia.getBoundingClientRect();
-      const mediaCenter = mediaRect.top + mediaRect.height * 0.42;
+      const anchor = modalMedia.scrollTop + modalMedia.clientHeight * 0.42 - modalMediaPadding.top;
       let activeIndex = 0;
       let closestDistance = Infinity;
 
-      frames.forEach((frame, index) => {
-        const rect = frame.getBoundingClientRect();
-        const frameAnchor = rect.top + Math.min(rect.height * 0.28, mediaRect.height * 0.42);
-        const distance = Math.abs(frameAnchor - mediaCenter);
+      modalFrameMetrics.forEach(({ index, top, bottom }) => {
+        const height = bottom - top;
+        const frameAnchor = top + Math.min(height * 0.28, modalMedia.clientHeight * 0.42);
+        const distance = Math.abs(frameAnchor - anchor);
         if (distance < closestDistance) {
           closestDistance = distance;
           activeIndex = index;
@@ -1056,7 +1089,9 @@ function initProjectModal() {
   }
 
   function scrollModalToProgress(progress) {
-    const scrollableHeight = Math.max(0, modalMedia.scrollHeight - modalMedia.clientHeight);
+    if (!modalFrameMetrics.length) refreshModalFrameMetrics();
+    const contentHeight = Math.max(0, modalFrameMetrics.at(-1)?.bottom || 0);
+    const scrollableHeight = Math.max(0, contentHeight + modalMediaPadding.top + modalMediaPadding.bottom - modalMedia.clientHeight);
     modalMedia.scrollTo({
       top: scrollableHeight * Math.max(0, Math.min(1, progress)),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
@@ -1079,8 +1114,9 @@ function initProjectModal() {
         Object.assign(document.createElement("img"), {
             src,
             alt: "",
-            loading: index < 4 ? "eager" : "lazy",
+            loading: "lazy",
             decoding: "async",
+            fetchPriority: "low",
             ariaHidden: "true",
           })
       );
@@ -1126,9 +1162,9 @@ function initProjectModal() {
     const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
     if (!frames.length) return;
 
-    loadProjectFrame(frames[0]);
+    frames.slice(0, 2).forEach(loadProjectFrame);
     if (!("IntersectionObserver" in window)) {
-      frames.slice(1).forEach(loadProjectFrame);
+      frames.slice(2).forEach(loadProjectFrame);
       return;
     }
 
@@ -1140,10 +1176,10 @@ function initProjectModal() {
           modalImageObserver?.unobserve(entry.target);
         });
       },
-      { root: modalMedia, rootMargin: "900px 0px", threshold: 0.01 }
+      { root: modalMedia, rootMargin: "1800px 0px", threshold: 0.01 }
     );
 
-    frames.slice(1).forEach((frame) => modalImageObserver.observe(frame));
+    frames.slice(2).forEach((frame) => modalImageObserver.observe(frame));
   }
 
   function renderSingleImage(image) {
@@ -1181,6 +1217,7 @@ function initProjectModal() {
         return frame;
       })
     );
+    refreshModalFrameMetrics();
     observeProjectFrames();
     updateActiveModalThumb();
   }
@@ -1209,6 +1246,7 @@ function initProjectModal() {
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("project-modal-open");
+    refreshModalFrameMetrics();
     closeButton.focus();
   }
 
@@ -1222,6 +1260,9 @@ function initProjectModal() {
     cancelAnimationFrame(scaleFrame);
     cancelAnimationFrame(thumbFrame);
     disconnectModalImageObserver();
+    modalFrames = [];
+    modalFrameMetrics = [];
+    modalMediaPadding = { top: 0, right: 0, bottom: 0, left: 0 };
     window.setTimeout(() => {
       modalMedia.replaceChildren();
       modalThumbs.replaceChildren();
@@ -1259,6 +1300,11 @@ function initProjectModal() {
     if (event.target === modal) closeModal();
   });
   panel.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
+  window.addEventListener("resize", () => {
+    if (!modal.classList.contains("is-open")) return;
+    refreshModalFrameMetrics();
+    updateActiveModalThumb();
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && modal.classList.contains("is-open")) closeModal();
   });
