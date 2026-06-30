@@ -935,11 +935,18 @@ function initProjectModal() {
     "meishang-app": {
       title: "美上云端 App",
       images: [
-        { src: "assets/projects/meishang-app/1.webp", width: 1920, height: 3354 },
-        { src: "assets/projects/meishang-app/2.webp", width: 1846, height: 16000 },
-        { src: "assets/projects/meishang-app/3.webp", width: 1920, height: 2604 },
-        { src: "assets/projects/meishang-app/4.webp", width: 1920, height: 2351 },
-        { src: "assets/projects/meishang-app/5.webp", width: 1920, height: 1392 },
+        { src: "assets/projects/meishang-app/1.webp", width: 1920, height: 1223 },
+        { src: "assets/projects/meishang-app/2.webp", width: 1920, height: 2251 },
+        { src: "assets/projects/meishang-app/3.webp", width: 1920, height: 2497 },
+        { src: "assets/projects/meishang-app/4.webp", width: 1920, height: 1069 },
+        { src: "assets/projects/meishang-app/5.webp", width: 1920, height: 2006 },
+        { src: "assets/projects/meishang-app/6.webp", width: 1920, height: 4530 },
+        { src: "assets/projects/meishang-app/7.webp", width: 1920, height: 3129 },
+        { src: "assets/projects/meishang-app/8.webp", width: 1920, height: 1496 },
+        { src: "assets/projects/meishang-app/9.webp", width: 1920, height: 1918 },
+        { src: "assets/projects/meishang-app/10.webp", width: 1920, height: 2604 },
+        { src: "assets/projects/meishang-app/11.webp", width: 1920, height: 2351 },
+        { src: "assets/projects/meishang-app/12.webp", width: 1920, height: 1392 },
       ],
     },
     "audience-saas": {
