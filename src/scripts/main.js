@@ -54,7 +54,7 @@ function initGradientBlinds() {
 
       vec2 spotlightCenter = vec2(iMouse.x / iResolution.x, iMouse.y / iResolution.y);
       float distanceToSpotlight = length(uv - spotlightCenter);
-      float normalizedDistance = distanceToSpotlight / 0.5;
+      float normalizedDistance = distanceToSpotlight / 0.4;
       float spotlight = 0.9 - 1.55 * pow(normalizedDistance, 1.08);
 
       float stripe = fract(uv.x * max(uBlindCount, 1.0));
