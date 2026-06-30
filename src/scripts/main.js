@@ -16,9 +16,12 @@ function initGradientBlinds() {
   if (!canvas || !hero) return;
 
   const gl = canvas.getContext("webgl", {
-    alpha: true,
-    antialias: true,
-    powerPreference: "high-performance"
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    preserveDrawingBuffer: false,
+    powerPreference: "low-power"
   });
   if (!gl) return;
 
@@ -51,12 +54,12 @@ function initGradientBlinds() {
 
       vec2 spotlightCenter = vec2(iMouse.x / iResolution.x, iMouse.y / iResolution.y);
       float distanceToSpotlight = length(uv - spotlightCenter);
-      float normalizedDistance = distanceToSpotlight / 0.6;
-      float spotlight = 1.0 - 2.0 * pow(normalizedDistance, 1.0);
+      float normalizedDistance = distanceToSpotlight / 0.5;
+      float spotlight = 0.9 - 1.55 * pow(normalizedDistance, 1.08);
 
       float stripe = fract(uv.x * max(uBlindCount, 1.0));
       vec3 color = vec3(spotlight) + base - vec3(stripe);
-      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.33;
+      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.10;
 
       fragColor = vec4(color, 1.0);
     }
@@ -125,17 +128,26 @@ function initGradientBlinds() {
   let lastFrameTime = 0;
   let raf = 0;
   let rendering = false;
+  let targetReleased = false;
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const renderScale = Math.min(
+      dpr,
+      1440 / Math.max(1, rect.width),
+      900 / Math.max(1, rect.height)
+    );
     width = Math.max(1, Math.round(rect.width * dpr));
     height = Math.max(1, Math.round(rect.height * dpr));
+    width = Math.max(1, Math.round(rect.width * renderScale));
+    height = Math.max(1, Math.round(rect.height * renderScale));
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
       gl.viewport(0, 0, width, height);
+      targetReleased = false;
     }
 
     blindCount = Math.max(1, Math.min(18, Math.floor(rect.width / 60)));
@@ -161,7 +173,7 @@ function initGradientBlinds() {
   function render(now) {
     if (!rendering) return;
     raf = requestAnimationFrame(render);
-    if (now - lastFrameTime < 1000 / 60) return;
+    if (now - lastFrameTime < 1000 / 30) return;
     lastFrameTime = now;
 
     if (!lastTime) lastTime = now;
@@ -178,6 +190,14 @@ function initGradientBlinds() {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
+  function releaseRenderTarget() {
+    if (targetReleased) return;
+    targetReleased = true;
+    canvas.width = 1;
+    canvas.height = 1;
+    gl.viewport(0, 0, 1, 1);
+  }
+
   function updateRenderingState() {
     const shouldRender =
       !document.hidden &&
@@ -188,8 +208,14 @@ function initGradientBlinds() {
 
     rendering = shouldRender;
     cancelAnimationFrame(raf);
-    if (!rendering) return;
+    if (!rendering) {
+      window.setTimeout(() => {
+        if (!rendering) releaseRenderTarget();
+      }, 260);
+      return;
+    }
 
+    resize();
     lastTime = 0;
     lastFrameTime = 0;
     raf = requestAnimationFrame(render);
@@ -1104,13 +1130,11 @@ function initProjectModal() {
     if (!frame) return;
 
     loadProjectFrame(frame);
+    cancelAnimationFrame(thumbFrame);
     const mediaRect = modalMedia.getBoundingClientRect();
     const frameRect = frame.getBoundingClientRect();
     const targetTop = modalMedia.scrollTop + frameRect.top - mediaRect.top - modalMediaPadding.top;
-    modalMedia.scrollTo({
-      top: Math.max(0, targetTop),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-    });
+    modalMedia.scrollTop = Math.max(0, targetTop);
     setActiveModalThumb(Number(index) || 0);
   }
 
@@ -1118,10 +1142,9 @@ function initProjectModal() {
     if (!modalFrameMetrics.length) refreshModalFrameMetrics();
     const contentHeight = Math.max(0, modalFrameMetrics.at(-1)?.bottom || 0);
     const scrollableHeight = Math.max(0, contentHeight + modalMediaPadding.top + modalMediaPadding.bottom - modalMedia.clientHeight);
-    modalMedia.scrollTo({
-      top: scrollableHeight * Math.max(0, Math.min(1, progress)),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-    });
+    cancelAnimationFrame(thumbFrame);
+    modalMedia.scrollTop = scrollableHeight * Math.max(0, Math.min(1, progress));
+    updateActiveModalThumb();
   }
 
   function renderProjectThumbs(project) {
@@ -1295,6 +1318,7 @@ function initProjectModal() {
     cancelAnimationFrame(modalRenderFrame);
     window.clearTimeout(modalCleanupTimer);
     window.clearTimeout(modalUnlockTimer);
+    modal.classList.remove("is-closing");
     previousFocus = document.activeElement;
     const shouldOpenCurrentImage = card.classList.contains("project-tile");
     const project = shouldOpenCurrentImage ? null : projectGalleries[card.dataset.project];
@@ -1337,7 +1361,7 @@ function initProjectModal() {
 
   function closeModal() {
     modal.classList.remove("is-open");
-    modal.classList.remove("project-modal--gallery", "project-modal--single");
+    modal.classList.add("is-closing");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.add("project-modal-closing");
     window.clearTimeout(modalCleanupTimer);
@@ -1354,12 +1378,22 @@ function initProjectModal() {
       document.body.classList.remove("project-modal-open");
       document.body.classList.remove("project-modal-closing");
       previousFocus?.focus?.();
-    }, 260);
+    }, 220);
 
     modalCleanupTimer = window.setTimeout(() => {
-      modalMedia.replaceChildren();
-      modalThumbs.replaceChildren();
-    }, 360);
+      const cleanupModal = () => {
+        modal.classList.remove("is-closing");
+        modal.classList.remove("project-modal--gallery", "project-modal--single");
+        modalMedia.replaceChildren();
+        modalThumbs.replaceChildren();
+      };
+
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(cleanupModal, { timeout: 320 });
+      } else {
+        window.setTimeout(cleanupModal, 40);
+      }
+    }, 300);
   }
 
   cards.forEach((card) => {
@@ -1374,10 +1408,24 @@ function initProjectModal() {
   });
 
   document.addEventListener("click", (event) => {
-    if (window.__serviceGalleryDragged) {
-      window.__serviceGalleryDragged = false;
+    if (window.__serviceGalleryClickHandled) {
+      window.__serviceGalleryClickHandled = false;
       return;
     }
+
+    const serviceGalleryDragEndAt = Number(window.__serviceGalleryDragEndAt) || 0;
+    const shouldSuppressServiceClick =
+      window.__serviceGalleryDragged &&
+      performance.now() - serviceGalleryDragEndAt < 420;
+
+    if (shouldSuppressServiceClick) {
+      window.__serviceGalleryDragged = false;
+      window.__serviceGalleryDragEndAt = 0;
+      return;
+    }
+    window.__serviceGalleryDragged = false;
+    window.__serviceGalleryDragEndAt = 0;
+
     const card = event.target.closest(".bounce-card, .project-tile");
     if (!card) return;
     openModal(card);
@@ -1423,8 +1471,13 @@ function initServiceGallery() {
   let lockedGalleryScrollY = 0;
   let pressedTile = null;
   let lockedSectionScrollTop = 0;
+  let galleryUnlockTimer = 0;
+  let verticalRestoreFrame = 0;
+  const dragClickThreshold = 8;
 
   function lockGalleryPageScroll() {
+    window.clearTimeout(galleryUnlockTimer);
+    window.cancelAnimationFrame(verticalRestoreFrame);
     lockedGalleryScrollY = window.scrollY;
     lockedSectionScrollTop = section.scrollTop;
     document.body.classList.add("service-gallery-dragging");
@@ -1440,8 +1493,39 @@ function initServiceGallery() {
   }
 
   function unlockGalleryPageScroll() {
+    window.clearTimeout(galleryUnlockTimer);
+    window.cancelAnimationFrame(verticalRestoreFrame);
     document.body.classList.remove("service-gallery-dragging");
     restoreGalleryVerticalScroll();
+  }
+
+  function holdGalleryVerticalScroll(duration = 900) {
+    const holdUntil = performance.now() + duration;
+
+    function restoreUntilReleased() {
+      restoreGalleryVerticalScroll();
+      if (performance.now() < holdUntil) {
+        verticalRestoreFrame = window.requestAnimationFrame(restoreUntilReleased);
+      }
+    }
+
+    window.cancelAnimationFrame(verticalRestoreFrame);
+    verticalRestoreFrame = window.requestAnimationFrame(restoreUntilReleased);
+  }
+
+  function deferUnlockGalleryPageScroll(duration = 900) {
+    document.body.classList.add("service-gallery-dragging");
+    lockServiceGalleryPaging(duration + 250);
+    holdGalleryVerticalScroll(duration);
+    window.clearTimeout(galleryUnlockTimer);
+    galleryUnlockTimer = window.setTimeout(unlockGalleryPageScroll, duration);
+  }
+
+  function lockServiceGalleryPaging(duration = 650) {
+    window.__serviceGalleryPagingLockedUntil = Math.max(
+      Number(window.__serviceGalleryPagingLockedUntil) || 0,
+      performance.now() + duration
+    );
   }
 
   gallery.addEventListener("pointerdown", (event) => {
@@ -1450,6 +1534,9 @@ function initServiceGallery() {
     inertiaFrame = 0;
     inertiaPreviousTime = 0;
     dragging = true;
+    window.__serviceGalleryDragged = false;
+    window.__serviceGalleryDragEndAt = 0;
+    lockServiceGalleryPaging(1200);
     dragStartX = event.clientX;
     dragStartScrollLeft = gallery.scrollLeft;
     dragStartTime = event.timeStamp || performance.now();
@@ -1458,6 +1545,7 @@ function initServiceGallery() {
     dragLastTime = event.timeStamp || performance.now();
     dragVelocity = 0;
     pressedTile = event.target.closest(".project-tile");
+    if (pressedTile) autoplayPaused = true;
     lockGalleryPageScroll();
     gallery.classList.add("is-dragging");
     gallery.setPointerCapture(event.pointerId);
@@ -1468,7 +1556,8 @@ function initServiceGallery() {
     event.preventDefault();
     const deltaX = event.clientX - dragStartX;
     dragDistance = Math.max(dragDistance, Math.abs(deltaX));
-    if (dragDistance > 3) window.__serviceGalleryDragged = true;
+    if (dragDistance > dragClickThreshold) window.__serviceGalleryDragged = true;
+    if (dragDistance > dragClickThreshold) lockServiceGalleryPaging(1200);
     gallery.scrollLeft = dragStartScrollLeft - deltaX;
     const now = event.timeStamp || performance.now();
     const elapsed = Math.max(16, now - dragLastTime);
@@ -1485,6 +1574,7 @@ function initServiceGallery() {
 
     event.preventDefault();
     event.stopPropagation();
+    lockServiceGalleryPaging(700);
     gallery.scrollLeft += event.deltaX;
     normalizeGalleryLoop();
   }, { passive: false });
@@ -1493,10 +1583,11 @@ function initServiceGallery() {
     if (!dragging) return;
     dragging = false;
     gallery.classList.remove("is-dragging");
-    unlockGalleryPageScroll();
     if (gallery.hasPointerCapture(event.pointerId)) gallery.releasePointerCapture(event.pointerId);
-    if (dragDistance > 3) {
+    if (dragDistance > dragClickThreshold) {
       window.__serviceGalleryDragged = true;
+      window.__serviceGalleryDragEndAt = performance.now();
+      deferUnlockGalleryPageScroll(1400);
       const dragElapsed = Math.max(80, (event.timeStamp || performance.now()) - dragStartTime);
       const averageVelocity = (dragStartX - event.clientX) / dragElapsed * 1000;
       const releaseVelocity = dragVelocity * 1000;
@@ -1504,22 +1595,37 @@ function initServiceGallery() {
         ? releaseVelocity
         : averageVelocity;
       startGalleryInertia(strongestVelocity, dragDistance);
+    } else if (
+      event.type === "pointerup" &&
+      pressedTile &&
+      typeof window.__openProjectModalForCard === "function"
+    ) {
+      window.__serviceGalleryClickHandled = true;
+      window.__openProjectModalForCard(pressedTile);
+      unlockGalleryPageScroll();
+    } else {
+      unlockGalleryPageScroll();
     }
     pressedTile = null;
   }
 
   function startGalleryInertia(initialVelocity, distance = 0) {
     const direction = Math.sign(initialVelocity) || Math.sign(dragStartX - dragLastX) || 1;
-    const minimumVelocity = distance > 12 ? 900 : 240;
+    const minimumVelocity = distance > 12 ? 1300 : 360;
     let velocity = Math.max(Math.abs(initialVelocity), minimumVelocity) * direction;
-    velocity = Math.max(-4200, Math.min(4200, velocity));
-    if (Math.abs(velocity) < 180) return;
+    velocity = Math.max(-6200, Math.min(6200, velocity));
+    if (Math.abs(velocity) < 180) {
+      deferUnlockGalleryPageScroll(700);
+      return;
+    }
 
     inertiaPreviousTime = 0;
+    deferUnlockGalleryPageScroll(1800);
     function step(timestamp) {
       if (!inertiaPreviousTime) inertiaPreviousTime = timestamp;
       const deltaSeconds = Math.min(40, timestamp - inertiaPreviousTime) / 1000;
       inertiaPreviousTime = timestamp;
+      restoreGalleryVerticalScroll();
 
       if (
         dragging ||
@@ -1527,15 +1633,18 @@ function initServiceGallery() {
         document.hidden
       ) {
         inertiaFrame = 0;
+        deferUnlockGalleryPageScroll(650);
         return;
       }
 
+      lockServiceGalleryPaging(450);
       gallery.scrollLeft += velocity * deltaSeconds;
       normalizeGalleryLoop();
-      velocity *= Math.exp(-1.25 * deltaSeconds);
+      velocity *= Math.exp(-0.72 * deltaSeconds);
 
       if (Math.abs(velocity) < 18) {
         inertiaFrame = 0;
+        deferUnlockGalleryPageScroll(650);
         return;
       }
 
@@ -1548,7 +1657,7 @@ function initServiceGallery() {
   gallery.addEventListener("pointerup", stopDrag);
   gallery.addEventListener("pointercancel", stopDrag);
   gallery.addEventListener("lostpointercapture", () => {
-    if (dragging) unlockGalleryPageScroll();
+    if (dragging) deferUnlockGalleryPageScroll(dragDistance > dragClickThreshold ? 900 : 120);
     dragging = false;
     pressedTile = null;
     gallery.classList.remove("is-dragging");
@@ -1557,7 +1666,7 @@ function initServiceGallery() {
   const loopColumns = columns.map((column) => {
     const originals = [...column.children];
     const originalCount = originals.length;
-    const minimumChildren = originalCount * 5;
+    const minimumChildren = originalCount * 3;
     while (column.children.length < minimumChildren) {
       originals.forEach((tile) => {
         if (column.children.length >= minimumChildren) return;
@@ -1652,27 +1761,8 @@ function initServiceGallery() {
   measureLoopWidth({ resetPosition: true });
   function updateAutoplayPauseFromPointer(event) {
     if (event.pointerType && event.pointerType !== "mouse") return;
-    const galleryRect = gallery.getBoundingClientRect();
-    const isHoveringTile = [...gallery.querySelectorAll(".project-tile")]
-      .some((tile) => {
-        const rect = tile.getBoundingClientRect();
-        const isVisible = (
-          rect.bottom > galleryRect.top &&
-          rect.top < galleryRect.bottom &&
-          rect.right > galleryRect.left &&
-          rect.left < galleryRect.right
-        );
-        if (!isVisible) return false;
-
-        return (
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom
-        );
-      });
-
-    autoplayPaused = isHoveringTile;
+    const tile = event.target.closest(".project-tile");
+    autoplayPaused = Boolean(tile && gallery.contains(tile));
   }
 
   gallery.addEventListener("pointermove", updateAutoplayPauseFromPointer, { passive: true });
@@ -1797,10 +1887,9 @@ initTextType();
 function getRevealElements(panel) {
   if (panel.classList.contains("hero") || panel.matches("#mission")) return [];
   if (panel.matches("#services")) return [];
+  if (panel.matches("#works")) return [];
 
-  const selectors = panel.matches("#works")
-    ? [".resume-header", ".resume-block"]
-    : [":scope > *"];
+  const selectors = [":scope > *"];
 
   return selectors.flatMap((selector) => [...panel.querySelectorAll(selector)]);
 }
@@ -1840,11 +1929,11 @@ function initServiceGalleryPreload() {
     image.addEventListener("dragstart", (event) => event.preventDefault());
   });
 
-  const images = serviceImages
-    .map((image) => image.currentSrc || image.getAttribute("src"))
-    .filter(Boolean);
-  const modalImages = images.map((src) => src.replace("assets/projects/gallery/", "assets/projects/gallery/modal/"));
-  const sources = [...new Set([...images, ...modalImages])];
+  const sources = [...new Set(
+    serviceImages
+      .map((image) => image.currentSrc || image.getAttribute("src"))
+      .filter(Boolean)
+  )];
   if (!section || !sources.length) return;
 
   let preloaded = false;
@@ -1871,13 +1960,8 @@ function initServiceGalleryPreload() {
     image.decoding = "async";
     image.fetchPriority = "low";
     image.src = src;
-
-    if (image.decode) {
-      image.decode().catch(() => {}).finally(() => schedule(preloadNext, 1200));
-    } else {
-      image.onload = () => schedule(preloadNext, 1200);
-      image.onerror = () => schedule(preloadNext, 1200);
-    }
+    image.onload = () => schedule(preloadNext, 1600);
+    image.onerror = () => schedule(preloadNext, 1600);
   };
 
   const requestPreload = () => {
@@ -2101,10 +2185,12 @@ function initSwipeSections() {
   }
 
   function requestPanel(direction) {
+    const serviceGalleryPagingLockedUntil = Number(window.__serviceGalleryPagingLockedUntil) || 0;
     if (
       document.body.classList.contains("lanyard-open") ||
       document.body.classList.contains("project-modal-open") ||
-      document.body.classList.contains("service-gallery-dragging")
+      document.body.classList.contains("service-gallery-dragging") ||
+      performance.now() < serviceGalleryPagingLockedUntil
     ) return;
     if (animating || canScrollActivePanel(direction)) return;
     goToPanel(currentIndex + direction, direction);
