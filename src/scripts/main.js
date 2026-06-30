@@ -1250,7 +1250,9 @@ function initProjectModal() {
     const imageSrc = image.currentSrc || image.src;
     const modalSrc = imageSrc.includes("assets/projects/gallery/modal/")
       ? imageSrc
-      : imageSrc.replace("assets/projects/gallery/", "assets/projects/gallery/modal/");
+      : imageSrc
+        .replace("assets/projects/gallery/service/", "assets/projects/gallery/modal/")
+        .replace("assets/projects/gallery/", "assets/projects/gallery/modal/");
     const modalPath = modalSrc.match(/assets\/projects\/gallery\/modal\/[^?#]+\.webp/)?.[0] || modalSrc;
     const [modalWidth, modalHeight] = modalImageDimensions[modalPath] || [
       Number(image.getAttribute("width")) || image.naturalWidth || 1920,
@@ -1922,78 +1924,11 @@ function initScrollReveal() {
 initScrollReveal();
 
 function initServiceGalleryPreload() {
-  const section = document.querySelector("#services");
   const serviceImages = [...document.querySelectorAll("#services .project-tile img")];
   serviceImages.forEach((image) => {
     image.draggable = false;
     image.addEventListener("dragstart", (event) => event.preventDefault());
   });
-
-  const sources = [...new Set(
-    serviceImages
-      .map((image) => image.currentSrc || image.getAttribute("src"))
-      .filter(Boolean)
-  )];
-  if (!section || !sources.length) return;
-
-  let preloaded = false;
-  let sourceIndex = 0;
-
-  const schedule = (callback, timeout = 1600) => {
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(callback, { timeout });
-    } else {
-      window.setTimeout(callback, 120);
-    }
-  };
-
-  const preloadNext = () => {
-    if (preloaded || document.hidden) return;
-    const src = sources[sourceIndex];
-    if (!src) {
-      preloaded = true;
-      return;
-    }
-
-    sourceIndex += 1;
-    const image = new Image();
-    image.decoding = "async";
-    image.fetchPriority = "low";
-    image.src = src;
-    image.onload = () => schedule(preloadNext, 1600);
-    image.onerror = () => schedule(preloadNext, 1600);
-  };
-
-  const requestPreload = () => {
-    if (preloaded) return;
-    schedule(preloadNext, 2200);
-  };
-
-  if (document.body.classList.contains("gsap-swipe-enabled")) {
-    const sync = () => {
-      if (section.classList.contains("is-active")) requestPreload();
-    };
-    new MutationObserver(sync).observe(section, {
-      attributes: true,
-      attributeFilter: ["class"]
-    });
-    sync();
-    return;
-  }
-
-  if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        requestPreload();
-      },
-      { rootMargin: "60% 0px", threshold: 0.01 }
-    );
-    observer.observe(section);
-  } else {
-    window.setTimeout(requestPreload, 1800);
-  }
 }
 
 initServiceGalleryPreload();
