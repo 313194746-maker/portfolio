@@ -253,7 +253,13 @@ function initLanyardModal() {
   if (!context) return;
 
   const avatarImage = new Image();
-  avatarImage.src = "assets/profile/li-wupeng-avatar.png";
+  avatarImage.decoding = "async";
+  let avatarImageRequested = false;
+  function requestAvatarImage() {
+    if (avatarImageRequested) return;
+    avatarImageRequested = true;
+    avatarImage.src = "assets/profile/li-wupeng-avatar.webp";
+  }
   avatarImage.addEventListener("load", () => {
     if (width && height) draw();
   }, { once: true });
@@ -719,6 +725,7 @@ function initLanyardModal() {
       return;
     }
 
+    requestAvatarImage();
     lockedScrollX = window.scrollX;
     lockedScrollY = window.scrollY;
     document.body.classList.add("lanyard-open");
@@ -772,6 +779,7 @@ function initLanyardModal() {
 
   const prewarm = () => {
     if (prewarmed || running) return;
+    requestAvatarImage();
     resizeLanyard();
     draw();
     prewarmed = true;
@@ -912,55 +920,57 @@ function initProjectModal() {
   const modal = document.querySelector("#project-modal");
   const panel = modal?.querySelector(".project-modal-panel");
   const modalMedia = modal?.querySelector(".project-modal-media");
+  const modalThumbs = modal?.querySelector(".project-modal-thumbs");
   const modalTitle = modal?.querySelector("#project-modal-title");
   const closeButton = modal?.querySelector(".project-modal-close");
   const scaleButtons = [...(modal?.querySelectorAll(".project-modal-scale-button") || [])];
   const cards = [...document.querySelectorAll(".bounce-card, .project-tile")];
-  if (!modal || !panel || !modalMedia || !modalTitle || !closeButton || !cards.length) return;
+  if (!modal || !panel || !modalMedia || !modalThumbs || !modalTitle || !closeButton || !cards.length) return;
 
   let previousFocus = null;
   let scaleFrame = 0;
+  let thumbFrame = 0;
   let modalImageObserver = null;
   const projectGalleries = {
     "meishang-app": {
       title: "美上云端 App",
       images: [
-        { src: "assets/projects/meishang-app/1.png", width: 1920, height: 3354 },
-        { src: "assets/projects/meishang-app/2.png", width: 1920, height: 16641 },
-        { src: "assets/projects/meishang-app/3.png", width: 1920, height: 2604 },
-        { src: "assets/projects/meishang-app/4.png", width: 1920, height: 2351 },
-        { src: "assets/projects/meishang-app/5.png", width: 1920, height: 1392 },
+        { src: "assets/projects/meishang-app/1.webp", width: 1920, height: 3354 },
+        { src: "assets/projects/meishang-app/2.webp", width: 1846, height: 16000 },
+        { src: "assets/projects/meishang-app/3.webp", width: 1920, height: 2604 },
+        { src: "assets/projects/meishang-app/4.webp", width: 1920, height: 2351 },
+        { src: "assets/projects/meishang-app/5.webp", width: 1920, height: 1392 },
       ],
     },
     "audience-saas": {
       title: "人群经营 SaaS",
       images: [
-        { src: "assets/projects/audience-saas/1.png", width: 1920, height: 4192 },
-        { src: "assets/projects/audience-saas/2.png", width: 1920, height: 978 },
-        { src: "assets/projects/audience-saas/3.png", width: 1920, height: 3994 },
-        { src: "assets/projects/audience-saas/4.png", width: 1920, height: 1190 },
+        { src: "assets/projects/audience-saas/1.webp", width: 1920, height: 4192 },
+        { src: "assets/projects/audience-saas/2.webp", width: 1920, height: 978 },
+        { src: "assets/projects/audience-saas/3.webp", width: 1920, height: 3994 },
+        { src: "assets/projects/audience-saas/4.webp", width: 1920, height: 1190 },
       ],
     },
     "slsg-miniapp": {
       title: "圣莉斯歌小程序",
       images: [
-        { src: "assets/projects/slsg-miniapp/1.png", width: 1920, height: 1024 },
-        { src: "assets/projects/slsg-miniapp/2.png", width: 1920, height: 1581 },
-        { src: "assets/projects/slsg-miniapp/3.png", width: 1920, height: 3635 },
-        { src: "assets/projects/slsg-miniapp/4.png", width: 1920, height: 2044 },
-        { src: "assets/projects/slsg-miniapp/5.png", width: 1920, height: 1250 },
-        { src: "assets/projects/slsg-miniapp/6.png", width: 1920, height: 1240 },
-        { src: "assets/projects/slsg-miniapp/7.png", width: 1920, height: 1240 },
-        { src: "assets/projects/slsg-miniapp/8.png", width: 1920, height: 1240 },
-        { src: "assets/projects/slsg-miniapp/9.png", width: 1920, height: 980 },
-        { src: "assets/projects/slsg-miniapp/10.png", width: 1920, height: 1200 },
+        { src: "assets/projects/slsg-miniapp/1.webp", width: 1920, height: 1024 },
+        { src: "assets/projects/slsg-miniapp/2.webp", width: 1920, height: 1581 },
+        { src: "assets/projects/slsg-miniapp/3.webp", width: 1920, height: 3635 },
+        { src: "assets/projects/slsg-miniapp/4.webp", width: 1920, height: 2044 },
+        { src: "assets/projects/slsg-miniapp/5.webp", width: 1920, height: 1250 },
+        { src: "assets/projects/slsg-miniapp/6.webp", width: 1920, height: 1240 },
+        { src: "assets/projects/slsg-miniapp/7.webp", width: 1920, height: 1240 },
+        { src: "assets/projects/slsg-miniapp/8.webp", width: 1920, height: 1240 },
+        { src: "assets/projects/slsg-miniapp/9.webp", width: 1920, height: 980 },
+        { src: "assets/projects/slsg-miniapp/10.webp", width: 1920, height: 1200 },
       ],
     },
     "lingxiaoxi-ip": {
       title: "灵小犀 IP 形象",
       images: [
-        { src: "assets/projects/lingxiaoxi-ip/1.png", width: 1920, height: 1110 },
-        { src: "assets/projects/lingxiaoxi-ip/2.png", width: 1920, height: 5587 },
+        { src: "assets/projects/lingxiaoxi-ip/1.webp", width: 1920, height: 1110 },
+        { src: "assets/projects/lingxiaoxi-ip/2.webp", width: 1920, height: 5587 },
       ],
     },
   };
@@ -975,7 +985,109 @@ function initProjectModal() {
         button.classList.toggle("is-active", isActive);
         button.setAttribute("aria-pressed", String(isActive));
       });
+      updateActiveModalThumb();
     });
+  }
+
+  function setActiveModalThumb(index = 0) {
+    const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
+    const clampedIndex = Math.max(0, Math.min(frames.length - 1, index));
+    const scrollableHeight = Math.max(1, modalMedia.scrollHeight - modalMedia.clientHeight);
+    const activeFrame = frames[clampedIndex];
+    const nextFrame = frames[clampedIndex + 1];
+    const top = activeFrame ? (activeFrame.offsetTop / scrollableHeight) * 100 : 0;
+    const bottom = nextFrame ? (nextFrame.offsetTop / scrollableHeight) * 100 : 100;
+    const indicatorTop = Math.max(0, Math.min(94, top));
+    const indicatorHeight = Math.max(6, Math.min(100 - indicatorTop, bottom - top));
+
+    modalThumbs.style.setProperty("--thumb-progress-top", `${indicatorTop}%`);
+    modalThumbs.style.setProperty("--thumb-progress-height", `${indicatorHeight}%`);
+    modalThumbs.dataset.activeIndex = String(clampedIndex);
+  }
+
+  function updateActiveModalThumb() {
+    cancelAnimationFrame(thumbFrame);
+    thumbFrame = requestAnimationFrame(() => {
+      const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
+      if (!frames.length) return;
+
+      const mediaRect = modalMedia.getBoundingClientRect();
+      const mediaCenter = mediaRect.top + mediaRect.height * 0.42;
+      let activeIndex = 0;
+      let closestDistance = Infinity;
+
+      frames.forEach((frame, index) => {
+        const rect = frame.getBoundingClientRect();
+        const frameAnchor = rect.top + Math.min(rect.height * 0.28, mediaRect.height * 0.42);
+        const distance = Math.abs(frameAnchor - mediaCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          activeIndex = index;
+        }
+      });
+
+      setActiveModalThumb(activeIndex);
+    });
+  }
+
+  function scrollModalToFrame(index) {
+    const frame = modalMedia.querySelector(`.project-modal-frame[data-index="${index}"]`);
+    if (!frame) return;
+
+    loadProjectFrame(frame);
+    const mediaRect = modalMedia.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    const targetTop = modalMedia.scrollTop + frameRect.top - mediaRect.top;
+    modalMedia.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+    setActiveModalThumb(Number(index) || 0);
+  }
+
+  function scrollModalToProgress(progress) {
+    const scrollableHeight = Math.max(0, modalMedia.scrollHeight - modalMedia.clientHeight);
+    modalMedia.scrollTo({
+      top: scrollableHeight * Math.max(0, Math.min(1, progress)),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }
+
+  function renderProjectThumbs(project) {
+    const stripButton = document.createElement("button");
+    stripButton.className = "project-modal-thumb-strip";
+    stripButton.type = "button";
+    stripButton.setAttribute("aria-label", "按缩略图位置快速跳转作品集详情");
+
+    const thumbList = document.createElement("div");
+    thumbList.className = "project-modal-thumb-list";
+    project.images.forEach(({ src, width, height }, index) => {
+      const item = document.createElement("div");
+      item.className = "project-modal-thumb-item";
+      item.style.setProperty("--thumb-image-ratio", `${width} / ${height}`);
+      item.append(
+        Object.assign(document.createElement("img"), {
+            src,
+            alt: "",
+            loading: index < 4 ? "eager" : "lazy",
+            decoding: "async",
+            ariaHidden: "true",
+          })
+      );
+      thumbList.append(item);
+    });
+
+    const indicator = document.createElement("span");
+    indicator.className = "project-modal-thumb-indicator";
+    stripButton.append(thumbList, indicator);
+    stripButton.addEventListener("click", (event) => {
+      const rect = stripButton.getBoundingClientRect();
+      const progress = (event.clientY - rect.top) / Math.max(1, rect.height);
+      scrollModalToProgress(progress);
+    });
+
+    modalThumbs.replaceChildren(stripButton);
+    setActiveModalThumb(0);
   }
 
   function disconnectModalImageObserver() {
@@ -1026,6 +1138,7 @@ function initProjectModal() {
 
   function renderSingleImage(image) {
     disconnectModalImageObserver();
+    modalThumbs.replaceChildren();
     modalMedia.className = "project-modal-media project-modal-media--single";
     modalMedia.replaceChildren(
       Object.assign(document.createElement("img"), {
@@ -1033,12 +1146,16 @@ function initProjectModal() {
         alt: image.alt,
         width: Number(image.getAttribute("width")) || image.naturalWidth || 1920,
         height: Number(image.getAttribute("height")) || image.naturalHeight || 1080,
+        loading: "eager",
+        decoding: "async",
+        fetchPriority: "high",
       })
     );
   }
 
   function renderGallery(project) {
     disconnectModalImageObserver();
+    renderProjectThumbs(project);
     modalMedia.className = "project-modal-media project-modal-media--gallery";
     modalMedia.replaceChildren(
       ...project.images.map(({ src, width, height }, index) => {
@@ -1055,6 +1172,7 @@ function initProjectModal() {
       })
     );
     observeProjectFrames();
+    updateActiveModalThumb();
   }
 
   function openModal(card) {
@@ -1092,9 +1210,11 @@ function initProjectModal() {
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("project-modal-open");
     cancelAnimationFrame(scaleFrame);
+    cancelAnimationFrame(thumbFrame);
     disconnectModalImageObserver();
     window.setTimeout(() => {
       modalMedia.replaceChildren();
+      modalThumbs.replaceChildren();
       previousFocus?.focus?.();
     }, 320);
   }
@@ -1124,6 +1244,7 @@ function initProjectModal() {
   scaleButtons.forEach((button) => {
     button.addEventListener("click", () => setModalScale(button.dataset.scale));
   });
+  modalMedia.addEventListener("scroll", updateActiveModalThumb, { passive: true });
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
   });
@@ -1191,12 +1312,12 @@ function initServiceGallery() {
   }, { passive: false });
 
   gallery.addEventListener("wheel", (event) => {
-    const horizontalDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
-      ? event.deltaX
-      : event.deltaY;
+    const isHorizontalGesture = Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.35;
+    if (!isHorizontalGesture) return;
+
     event.preventDefault();
     event.stopPropagation();
-    gallery.scrollLeft += horizontalDelta;
+    gallery.scrollLeft += event.deltaX;
     normalizeGalleryLoop();
   }, { passive: false });
 
@@ -1247,7 +1368,7 @@ function initServiceGallery() {
   let autoplayPreviousTime = 0;
   let autoplayPaused = false;
 
-  function measureLoopWidth() {
+  function measureLoopWidth({ resetPosition = false } = {}) {
     const widths = loopColumns.map(({ column, originalCount }) => {
       const children = [...column.children];
       const first = children[0];
@@ -1256,7 +1377,7 @@ function initServiceGallery() {
       return firstClone.offsetLeft - first.offsetLeft;
     });
     loopWidth = Math.max(...widths, 0);
-    if (loopWidth > 0 && gallery.scrollLeft < 1) gallery.scrollLeft = loopWidth;
+    if (loopWidth > 0 && (resetPosition || gallery.scrollLeft < 1)) gallery.scrollLeft = loopWidth;
   }
 
   function normalizeGalleryLoop() {
@@ -1277,24 +1398,48 @@ function initServiceGallery() {
       !document.body.classList.contains("project-modal-open") &&
       !document.hidden
     ) {
-      gallery.scrollLeft -= 34 * deltaSeconds;
+      gallery.scrollLeft -= 68 * deltaSeconds;
       normalizeGalleryLoop();
     }
 
     autoplayFrame = window.requestAnimationFrame(playGallery);
   }
 
-  measureLoopWidth();
-  gallery.addEventListener("pointerenter", () => {
-    autoplayPaused = true;
-  });
+  measureLoopWidth({ resetPosition: true });
+  function updateAutoplayPauseFromPointer(event) {
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    const galleryRect = gallery.getBoundingClientRect();
+    const isHoveringTile = [...gallery.querySelectorAll(".project-tile")]
+      .some((tile) => {
+        const rect = tile.getBoundingClientRect();
+        const isVisible = (
+          rect.bottom > galleryRect.top &&
+          rect.top < galleryRect.bottom &&
+          rect.right > galleryRect.left &&
+          rect.left < galleryRect.right
+        );
+        if (!isVisible) return false;
+
+        return (
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        );
+      });
+
+    autoplayPaused = isHoveringTile;
+    if (!autoplayPaused) autoplayPreviousTime = 0;
+  }
+
+  gallery.addEventListener("pointermove", updateAutoplayPauseFromPointer, { passive: true });
   gallery.addEventListener("pointerleave", () => {
     autoplayPaused = false;
     autoplayPreviousTime = 0;
   });
   window.addEventListener("resize", () => {
     window.requestAnimationFrame(() => {
-      measureLoopWidth();
+      measureLoopWidth({ resetPosition: true });
       normalizeGalleryLoop();
     });
   }, { passive: true });
