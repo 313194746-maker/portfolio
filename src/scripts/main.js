@@ -182,7 +182,8 @@ function initGradientBlinds() {
     const shouldRender =
       !document.hidden &&
       !hero.classList.contains("is-covered") &&
-      !document.body.classList.contains("lanyard-open");
+      !document.body.classList.contains("lanyard-open") &&
+      !document.body.classList.contains("project-modal-open");
     if (shouldRender === rendering) return;
 
     rendering = shouldRender;
@@ -927,9 +928,30 @@ function initProjectModal() {
   const cards = [...document.querySelectorAll(".bounce-card, .project-tile")];
   if (!modal || !panel || !modalMedia || !modalThumbs || !modalTitle || !closeButton || !cards.length) return;
 
+  const modalImageDimensions = {
+    "assets/projects/gallery/modal/audience-saas-center.webp": [720, 474],
+    "assets/projects/gallery/modal/audience-saas-hero.webp": [720, 520],
+    "assets/projects/gallery/modal/audience-saas-left.webp": [720, 566],
+    "assets/projects/gallery/modal/audience-saas-right.webp": [720, 559],
+    "assets/projects/gallery/modal/audience-saas.webp": [1920, 1080],
+    "assets/projects/gallery/modal/lingxiaoxi-ip.webp": [1920, 1080],
+    "assets/projects/gallery/modal/meishang-app-center.webp": [720, 474],
+    "assets/projects/gallery/modal/meishang-app-hero.webp": [720, 580],
+    "assets/projects/gallery/modal/meishang-app-left.webp": [720, 566],
+    "assets/projects/gallery/modal/meishang-app-right.webp": [720, 559],
+    "assets/projects/gallery/modal/meishang-app.webp": [1920, 1080],
+    "assets/projects/gallery/modal/slsg-miniapp-center.webp": [720, 474],
+    "assets/projects/gallery/modal/slsg-miniapp-hero.webp": [720, 536],
+    "assets/projects/gallery/modal/slsg-miniapp-left.webp": [720, 566],
+    "assets/projects/gallery/modal/slsg-miniapp-right.webp": [720, 539],
+    "assets/projects/gallery/modal/slsg-miniapp.webp": [1920, 995],
+  };
   let previousFocus = null;
   let scaleFrame = 0;
   let thumbFrame = 0;
+  let modalRenderFrame = 0;
+  let modalCleanupTimer = 0;
+  let modalUnlockTimer = 0;
   let modalImageObserver = null;
   let modalFrames = [];
   let modalFrameMetrics = [];
@@ -938,7 +960,7 @@ function initProjectModal() {
     "meishang-app": {
       title: "美上云端 App",
       images: [
-        { src: "assets/projects/meishang-app/1.webp", width: 1920, height: 1223 },
+        { src: "assets/projects/meishang-app/1.webp", width: 1920, height: 1080 },
         { src: "assets/projects/meishang-app/2.webp", width: 1920, height: 2251 },
         { src: "assets/projects/meishang-app/3.webp", width: 1920, height: 2497 },
         { src: "assets/projects/meishang-app/4.webp", width: 1920, height: 1069 },
@@ -983,13 +1005,16 @@ function initProjectModal() {
       title: "灵小犀 IP 形象",
       images: [
         { src: "assets/projects/lingxiaoxi-ip/1.webp", width: 1920, height: 1110 },
-        { src: "assets/projects/lingxiaoxi-ip/2.webp", width: 1920, height: 5587 },
+        { src: "assets/projects/lingxiaoxi-ip/2.webp", width: 1920, height: 1224 },
+        { src: "assets/projects/lingxiaoxi-ip/3.webp", width: 1920, height: 1020 },
+        { src: "assets/projects/lingxiaoxi-ip/4.webp", width: 1920, height: 1879 },
+        { src: "assets/projects/lingxiaoxi-ip/5.webp", width: 1920, height: 1461 },
       ],
     },
   };
 
-  function setModalScale(scale = "75") {
-    const normalizedScale = ["50", "75", "100"].includes(String(scale)) ? String(scale) : "75";
+  function setModalScale(scale = "70") {
+    const normalizedScale = ["30", "50", "70"].includes(String(scale)) ? String(scale) : "70";
     cancelAnimationFrame(scaleFrame);
     scaleFrame = requestAnimationFrame(() => {
       panel.style.setProperty("--project-modal-scale", `${normalizedScale}%`);
@@ -1055,16 +1080,17 @@ function initProjectModal() {
       if (!modalFrameMetrics.length) refreshModalFrameMetrics();
       if (!modalFrameMetrics.length) return;
 
-      const anchor = modalMedia.scrollTop + modalMedia.clientHeight * 0.42 - modalMediaPadding.top;
-      let activeIndex = 0;
-      let closestDistance = Infinity;
+      const scrollTop = Math.max(0, modalMedia.scrollTop - modalMediaPadding.top);
+      if (scrollTop <= 4) {
+        setActiveModalThumb(0);
+        return;
+      }
 
-      modalFrameMetrics.forEach(({ index, top, bottom }) => {
-        const height = bottom - top;
-        const frameAnchor = top + Math.min(height * 0.28, modalMedia.clientHeight * 0.42);
-        const distance = Math.abs(frameAnchor - anchor);
-        if (distance < closestDistance) {
-          closestDistance = distance;
+      const anchor = scrollTop + Math.min(72, modalMedia.clientHeight * 0.12);
+      let activeIndex = 0;
+
+      modalFrameMetrics.forEach(({ index, top }) => {
+        if (top <= anchor) {
           activeIndex = index;
         }
       });
@@ -1080,7 +1106,7 @@ function initProjectModal() {
     loadProjectFrame(frame);
     const mediaRect = modalMedia.getBoundingClientRect();
     const frameRect = frame.getBoundingClientRect();
-    const targetTop = modalMedia.scrollTop + frameRect.top - mediaRect.top;
+    const targetTop = modalMedia.scrollTop + frameRect.top - mediaRect.top - modalMediaPadding.top;
     modalMedia.scrollTo({
       top: Math.max(0, targetTop),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
@@ -1109,17 +1135,21 @@ function initProjectModal() {
     project.images.forEach(({ src, width, height }, index) => {
       const item = document.createElement("div");
       item.className = "project-modal-thumb-item";
+      item.dataset.index = String(index);
       item.style.setProperty("--thumb-image-ratio", `${width} / ${height}`);
-      item.append(
-        Object.assign(document.createElement("img"), {
-            src,
-            alt: "",
-            loading: "lazy",
-            decoding: "async",
-            fetchPriority: "low",
-            ariaHidden: "true",
-          })
-      );
+      const thumbSrc = src.replace(/\/([^/]+)$/, "/thumbs/$1");
+      const image = Object.assign(document.createElement("img"), {
+        src: thumbSrc,
+        alt: "",
+        loading: "lazy",
+        decoding: "async",
+        fetchPriority: "low",
+        ariaHidden: "true",
+      });
+      image.addEventListener("error", () => {
+        image.src = src;
+      }, { once: true });
+      item.append(image);
       thumbList.append(item);
     });
 
@@ -1127,6 +1157,12 @@ function initProjectModal() {
     indicator.className = "project-modal-thumb-indicator";
     stripButton.append(thumbList, indicator);
     stripButton.addEventListener("click", (event) => {
+      const item = event.target.closest(".project-modal-thumb-item");
+      if (item) {
+        scrollModalToFrame(item.dataset.index);
+        return;
+      }
+
       const rect = stripButton.getBoundingClientRect();
       const progress = (event.clientY - rect.top) / Math.max(1, rect.height);
       scrollModalToProgress(progress);
@@ -1162,7 +1198,10 @@ function initProjectModal() {
     const frames = [...modalMedia.querySelectorAll(".project-modal-frame")];
     if (!frames.length) return;
 
-    frames.slice(0, 2).forEach(loadProjectFrame);
+    loadProjectFrame(frames[0]);
+    window.setTimeout(() => {
+      if (modal.classList.contains("is-open")) loadProjectFrame(frames[1]);
+    }, 180);
     if (!("IntersectionObserver" in window)) {
       frames.slice(2).forEach(loadProjectFrame);
       return;
@@ -1185,18 +1224,45 @@ function initProjectModal() {
   function renderSingleImage(image) {
     disconnectModalImageObserver();
     modalThumbs.replaceChildren();
+    const imageSrc = image.currentSrc || image.src;
+    const modalSrc = imageSrc.includes("assets/projects/gallery/modal/")
+      ? imageSrc
+      : imageSrc.replace("assets/projects/gallery/", "assets/projects/gallery/modal/");
+    const modalPath = modalSrc.match(/assets\/projects\/gallery\/modal\/[^?#]+\.webp/)?.[0] || modalSrc;
+    const [modalWidth, modalHeight] = modalImageDimensions[modalPath] || [
+      Number(image.getAttribute("width")) || image.naturalWidth || 1920,
+      Number(image.getAttribute("height")) || image.naturalHeight || 1080,
+    ];
+    const previewImage = Object.assign(document.createElement("img"), {
+      src: imageSrc,
+      alt: image.alt,
+      width: modalWidth,
+      height: modalHeight,
+      loading: "eager",
+      decoding: "async",
+      fetchPriority: "high",
+    });
+
     modalMedia.className = "project-modal-media project-modal-media--single";
-    modalMedia.replaceChildren(
-      Object.assign(document.createElement("img"), {
-        src: image.currentSrc || image.src,
-        alt: image.alt,
-        width: Number(image.getAttribute("width")) || image.naturalWidth || 1920,
-        height: Number(image.getAttribute("height")) || image.naturalHeight || 1080,
-        loading: "eager",
-        decoding: "async",
-        fetchPriority: "high",
-      })
-    );
+    modalMedia.replaceChildren(previewImage);
+
+    if (modalSrc === imageSrc) return;
+
+    const fullImage = new Image();
+    fullImage.decoding = "async";
+    fullImage.fetchPriority = "high";
+    fullImage.src = modalSrc;
+
+    const swapFullImage = () => {
+      if (!modal.classList.contains("is-open") || !previewImage.isConnected) return;
+      previewImage.src = modalSrc;
+    };
+
+    if (fullImage.decode) {
+      fullImage.decode().then(swapFullImage).catch(() => {});
+    } else {
+      fullImage.onload = swapFullImage;
+    }
   }
 
   function renderGallery(project) {
@@ -1226,28 +1292,45 @@ function initProjectModal() {
     const image = card.querySelector("img");
     if (!image) return;
 
+    cancelAnimationFrame(modalRenderFrame);
+    window.clearTimeout(modalCleanupTimer);
+    window.clearTimeout(modalUnlockTimer);
     previousFocus = document.activeElement;
     const shouldOpenCurrentImage = card.classList.contains("project-tile");
     const project = shouldOpenCurrentImage ? null : projectGalleries[card.dataset.project];
+    modalMedia.scrollTop = 0;
+    modalMedia.replaceChildren();
+    modalThumbs.replaceChildren();
+
     if (project) {
       modal.classList.add("project-modal--gallery");
       modal.classList.remove("project-modal--single");
-      renderGallery(project);
+      modalMedia.className = "project-modal-media project-modal-media--gallery";
       modalTitle.textContent = project.title;
       setModalScale("50");
     } else {
       modal.classList.add("project-modal--single");
       modal.classList.remove("project-modal--gallery");
-      renderSingleImage(image);
+      modalMedia.className = "project-modal-media project-modal-media--single";
       modalTitle.textContent = image.alt.replace(/设计项目|项目视觉|形象设计项目/g, "");
-      setModalScale("75");
+      setModalScale("70");
     }
-    modalMedia.scrollTop = 0;
+
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
+    document.body.classList.remove("project-modal-closing");
     document.body.classList.add("project-modal-open");
-    refreshModalFrameMetrics();
     closeButton.focus();
+
+    modalRenderFrame = requestAnimationFrame(() => {
+      if (!modal.classList.contains("is-open")) return;
+      if (project) {
+        renderGallery(project);
+      } else {
+        renderSingleImage(image);
+      }
+      refreshModalFrameMetrics();
+    });
   }
 
   window.__openProjectModalForCard = openModal;
@@ -1256,18 +1339,27 @@ function initProjectModal() {
     modal.classList.remove("is-open");
     modal.classList.remove("project-modal--gallery", "project-modal--single");
     modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("project-modal-open");
+    document.body.classList.add("project-modal-closing");
+    window.clearTimeout(modalCleanupTimer);
+    window.clearTimeout(modalUnlockTimer);
+    cancelAnimationFrame(modalRenderFrame);
     cancelAnimationFrame(scaleFrame);
     cancelAnimationFrame(thumbFrame);
     disconnectModalImageObserver();
     modalFrames = [];
     modalFrameMetrics = [];
     modalMediaPadding = { top: 0, right: 0, bottom: 0, left: 0 };
-    window.setTimeout(() => {
+
+    modalUnlockTimer = window.setTimeout(() => {
+      document.body.classList.remove("project-modal-open");
+      document.body.classList.remove("project-modal-closing");
+      previousFocus?.focus?.();
+    }, 260);
+
+    modalCleanupTimer = window.setTimeout(() => {
       modalMedia.replaceChildren();
       modalThumbs.replaceChildren();
-      previousFocus?.focus?.();
-    }, 320);
+    }, 360);
   }
 
   cards.forEach((card) => {
@@ -1321,7 +1413,13 @@ function initServiceGallery() {
   let dragging = false;
   let dragStartX = 0;
   let dragStartScrollLeft = 0;
+  let dragStartTime = 0;
   let dragDistance = 0;
+  let dragLastX = 0;
+  let dragLastTime = 0;
+  let dragVelocity = 0;
+  let inertiaFrame = 0;
+  let inertiaPreviousTime = 0;
   let lockedGalleryScrollY = 0;
   let pressedTile = null;
   let lockedSectionScrollTop = 0;
@@ -1348,10 +1446,17 @@ function initServiceGallery() {
 
   gallery.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    window.cancelAnimationFrame(inertiaFrame);
+    inertiaFrame = 0;
+    inertiaPreviousTime = 0;
     dragging = true;
     dragStartX = event.clientX;
     dragStartScrollLeft = gallery.scrollLeft;
+    dragStartTime = event.timeStamp || performance.now();
     dragDistance = 0;
+    dragLastX = event.clientX;
+    dragLastTime = event.timeStamp || performance.now();
+    dragVelocity = 0;
     pressedTile = event.target.closest(".project-tile");
     lockGalleryPageScroll();
     gallery.classList.add("is-dragging");
@@ -1363,7 +1468,14 @@ function initServiceGallery() {
     event.preventDefault();
     const deltaX = event.clientX - dragStartX;
     dragDistance = Math.max(dragDistance, Math.abs(deltaX));
+    if (dragDistance > 3) window.__serviceGalleryDragged = true;
     gallery.scrollLeft = dragStartScrollLeft - deltaX;
+    const now = event.timeStamp || performance.now();
+    const elapsed = Math.max(16, now - dragLastTime);
+    const nextVelocity = (dragLastX - event.clientX) / elapsed;
+    dragVelocity = dragVelocity * 0.55 + nextVelocity * 0.45;
+    dragLastX = event.clientX;
+    dragLastTime = now;
     restoreGalleryVerticalScroll();
   }, { passive: false });
 
@@ -1383,14 +1495,54 @@ function initServiceGallery() {
     gallery.classList.remove("is-dragging");
     unlockGalleryPageScroll();
     if (gallery.hasPointerCapture(event.pointerId)) gallery.releasePointerCapture(event.pointerId);
-    if (dragDistance > 6) {
+    if (dragDistance > 3) {
       window.__serviceGalleryDragged = true;
-    } else if (pressedTile) {
-      event.preventDefault();
-      window.__serviceGalleryDragged = true;
-      window.__openProjectModalForCard?.(pressedTile);
+      const dragElapsed = Math.max(80, (event.timeStamp || performance.now()) - dragStartTime);
+      const averageVelocity = (dragStartX - event.clientX) / dragElapsed * 1000;
+      const releaseVelocity = dragVelocity * 1000;
+      const strongestVelocity = Math.abs(releaseVelocity) > Math.abs(averageVelocity)
+        ? releaseVelocity
+        : averageVelocity;
+      startGalleryInertia(strongestVelocity, dragDistance);
     }
     pressedTile = null;
+  }
+
+  function startGalleryInertia(initialVelocity, distance = 0) {
+    const direction = Math.sign(initialVelocity) || Math.sign(dragStartX - dragLastX) || 1;
+    const minimumVelocity = distance > 12 ? 900 : 240;
+    let velocity = Math.max(Math.abs(initialVelocity), minimumVelocity) * direction;
+    velocity = Math.max(-4200, Math.min(4200, velocity));
+    if (Math.abs(velocity) < 180) return;
+
+    inertiaPreviousTime = 0;
+    function step(timestamp) {
+      if (!inertiaPreviousTime) inertiaPreviousTime = timestamp;
+      const deltaSeconds = Math.min(40, timestamp - inertiaPreviousTime) / 1000;
+      inertiaPreviousTime = timestamp;
+
+      if (
+        dragging ||
+        document.body.classList.contains("project-modal-open") ||
+        document.hidden
+      ) {
+        inertiaFrame = 0;
+        return;
+      }
+
+      gallery.scrollLeft += velocity * deltaSeconds;
+      normalizeGalleryLoop();
+      velocity *= Math.exp(-1.25 * deltaSeconds);
+
+      if (Math.abs(velocity) < 18) {
+        inertiaFrame = 0;
+        return;
+      }
+
+      inertiaFrame = window.requestAnimationFrame(step);
+    }
+
+    inertiaFrame = window.requestAnimationFrame(step);
   }
 
   gallery.addEventListener("pointerup", stopDrag);
@@ -1423,6 +1575,7 @@ function initServiceGallery() {
   let autoplayFrame = 0;
   let autoplayPreviousTime = 0;
   let autoplayPaused = false;
+  let autoplayRunning = false;
 
   function measureLoopWidth({ resetPosition = false } = {}) {
     const widths = loopColumns.map(({ column, originalCount }) => {
@@ -1442,19 +1595,54 @@ function initServiceGallery() {
     while (gallery.scrollLeft >= loopWidth * 2) gallery.scrollLeft -= loopWidth;
   }
 
+  function canPlayGallery() {
+    return !document.body.classList.contains("gsap-swipe-enabled") || section.classList.contains("is-active");
+  }
+
+  function shouldRunGalleryAutoplay() {
+    return (
+      loopWidth > 0 &&
+      canPlayGallery() &&
+      !document.body.classList.contains("project-modal-open") &&
+      !document.hidden
+    );
+  }
+
+  function startGalleryAutoplay() {
+    if (autoplayRunning) return;
+    autoplayRunning = true;
+    autoplayPreviousTime = 0;
+    autoplayFrame = window.requestAnimationFrame(playGallery);
+  }
+
+  function stopGalleryAutoplay() {
+    if (!autoplayRunning) return;
+    autoplayRunning = false;
+    autoplayPreviousTime = 0;
+    window.cancelAnimationFrame(autoplayFrame);
+  }
+
+  function syncGalleryAutoplay() {
+    if (shouldRunGalleryAutoplay()) {
+      startGalleryAutoplay();
+    } else {
+      stopGalleryAutoplay();
+    }
+  }
+
   function playGallery(timestamp) {
+    if (!autoplayRunning) return;
     if (!autoplayPreviousTime) autoplayPreviousTime = timestamp;
-    const deltaSeconds = Math.min(40, timestamp - autoplayPreviousTime) / 1000;
+    const deltaSeconds = Math.min(120, timestamp - autoplayPreviousTime) / 1000;
     autoplayPreviousTime = timestamp;
 
     if (
       loopWidth > 0 &&
       !dragging &&
-      !autoplayPaused &&
-      !document.body.classList.contains("project-modal-open") &&
-      !document.hidden
+      !inertiaFrame &&
+      !autoplayPaused
     ) {
-      gallery.scrollLeft -= 68 * deltaSeconds;
+      gallery.scrollLeft -= 80 * deltaSeconds;
       normalizeGalleryLoop();
     }
 
@@ -1485,21 +1673,29 @@ function initServiceGallery() {
       });
 
     autoplayPaused = isHoveringTile;
-    if (!autoplayPaused) autoplayPreviousTime = 0;
   }
 
   gallery.addEventListener("pointermove", updateAutoplayPauseFromPointer, { passive: true });
   gallery.addEventListener("pointerleave", () => {
     autoplayPaused = false;
-    autoplayPreviousTime = 0;
   });
   window.addEventListener("resize", () => {
     window.requestAnimationFrame(() => {
       measureLoopWidth({ resetPosition: true });
       normalizeGalleryLoop();
+      syncGalleryAutoplay();
     });
   }, { passive: true });
-  autoplayFrame = window.requestAnimationFrame(playGallery);
+  document.addEventListener("visibilitychange", syncGalleryAutoplay);
+  new MutationObserver(syncGalleryAutoplay).observe(section, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+  new MutationObserver(syncGalleryAutoplay).observe(document.body, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+  syncGalleryAutoplay();
 
   if (!window.gsap || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -1600,12 +1796,11 @@ initTextType();
 
 function getRevealElements(panel) {
   if (panel.classList.contains("hero") || panel.matches("#mission")) return [];
+  if (panel.matches("#services")) return [];
 
   const selectors = panel.matches("#works")
     ? [".resume-header", ".resume-block"]
-    : panel.matches("#services")
-      ? [".service-gallery"]
-      : [":scope > *"];
+    : [":scope > *"];
 
   return selectors.flatMap((selector) => [...panel.querySelectorAll(selector)]);
 }
@@ -1636,6 +1831,88 @@ function initScrollReveal() {
 }
 
 initScrollReveal();
+
+function initServiceGalleryPreload() {
+  const section = document.querySelector("#services");
+  const serviceImages = [...document.querySelectorAll("#services .project-tile img")];
+  serviceImages.forEach((image) => {
+    image.draggable = false;
+    image.addEventListener("dragstart", (event) => event.preventDefault());
+  });
+
+  const images = serviceImages
+    .map((image) => image.currentSrc || image.getAttribute("src"))
+    .filter(Boolean);
+  const modalImages = images.map((src) => src.replace("assets/projects/gallery/", "assets/projects/gallery/modal/"));
+  const sources = [...new Set([...images, ...modalImages])];
+  if (!section || !sources.length) return;
+
+  let preloaded = false;
+  let sourceIndex = 0;
+
+  const schedule = (callback, timeout = 1600) => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(callback, { timeout });
+    } else {
+      window.setTimeout(callback, 120);
+    }
+  };
+
+  const preloadNext = () => {
+    if (preloaded || document.hidden) return;
+    const src = sources[sourceIndex];
+    if (!src) {
+      preloaded = true;
+      return;
+    }
+
+    sourceIndex += 1;
+    const image = new Image();
+    image.decoding = "async";
+    image.fetchPriority = "low";
+    image.src = src;
+
+    if (image.decode) {
+      image.decode().catch(() => {}).finally(() => schedule(preloadNext, 1200));
+    } else {
+      image.onload = () => schedule(preloadNext, 1200);
+      image.onerror = () => schedule(preloadNext, 1200);
+    }
+  };
+
+  const requestPreload = () => {
+    if (preloaded) return;
+    schedule(preloadNext, 2200);
+  };
+
+  if (document.body.classList.contains("gsap-swipe-enabled")) {
+    const sync = () => {
+      if (section.classList.contains("is-active")) requestPreload();
+    };
+    new MutationObserver(sync).observe(section, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    sync();
+    return;
+  }
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        requestPreload();
+      },
+      { rootMargin: "60% 0px", threshold: 0.01 }
+    );
+    observer.observe(section);
+  } else {
+    window.setTimeout(requestPreload, 1800);
+  }
+}
+
+initServiceGalleryPreload();
 
 function initSwipeSections() {
   if (!swipeMode) return;
