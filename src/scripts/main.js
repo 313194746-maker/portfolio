@@ -1,4 +1,4 @@
-const sections = [...document.querySelectorAll("main section[id], footer[id]")];
+const sections = [...document.querySelectorAll("main section[id]")];
 const navLinks = [...document.querySelectorAll(".top-nav nav a:not(.nav-cta)")];
 const swipeMode = Boolean(
   window.gsap &&
@@ -8,6 +8,12 @@ const swipeMode = Boolean(
 
 if (swipeMode) {
   document.body.classList.add("gsap-swipe-enabled");
+}
+
+function getPanelHash(panel) {
+  if (!panel) return "";
+  if (panel.classList.contains("hero")) return "#top";
+  return panel.id ? `#${panel.id}` : "";
 }
 
 function initGradientBlinds() {
@@ -761,15 +767,18 @@ function initLanyardModal() {
     contactLink.classList.add("is-active");
     contactLink.setAttribute("aria-expanded", "true");
     contactLink.setAttribute("aria-label", "收起");
-    running = true;
-    lastTime = 0;
-    quietFrames = 0;
-    physicsAccumulator = 0;
-    const resized = resizeLanyard();
-    updateAnchorX();
-    if (!resized) resetSimulation();
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(() => {
+      if (!stage.classList.contains("is-open")) return;
+      running = true;
+      lastTime = 0;
+      quietFrames = 0;
+      physicsAccumulator = 0;
+      const resized = resizeLanyard();
+      updateAnchorX();
+      if (!resized) resetSimulation();
+      raf = requestAnimationFrame(frame);
+    });
     window.setTimeout(() => {
       history.replaceState(null, "", `${location.pathname}${location.search}`);
     }, 0);
@@ -824,19 +833,21 @@ function initLanyardModal() {
 initLanyardModal();
 
 if (!swipeMode) {
+  const observedPanels = [...document.querySelectorAll("main section")];
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
+        const activeHash = getPanelHash(entry.target);
         navLinks.forEach((link) => {
-          link.classList.toggle("is-active", link.getAttribute("href") === `#${entry.target.id}`);
+          link.classList.toggle("is-active", link.getAttribute("href") === activeHash);
         });
       });
     },
     { threshold: 0.42 }
   );
 
-  sections.forEach((section) => observer.observe(section));
+  observedPanels.forEach((section) => observer.observe(section));
 }
 
 const bounceCards = document.querySelector(".bounce-cards");
@@ -1250,9 +1261,9 @@ function initProjectModal() {
     const imageSrc = image.currentSrc || image.src;
     const modalSrc = imageSrc.includes("assets/projects/gallery/modal/")
       ? imageSrc
-      : imageSrc
-        .replace("assets/projects/gallery/service/", "assets/projects/gallery/modal/")
-        .replace("assets/projects/gallery/", "assets/projects/gallery/modal/");
+      : imageSrc.includes("assets/projects/gallery/service/")
+        ? imageSrc.replace("assets/projects/gallery/service/", "assets/projects/gallery/modal/")
+        : imageSrc.replace("assets/projects/gallery/", "assets/projects/gallery/modal/");
     const modalPath = modalSrc.match(/assets\/projects\/gallery\/modal\/[^?#]+\.webp/)?.[0] || modalSrc;
     const [modalWidth, modalHeight] = modalImageDimensions[modalPath] || [
       Number(image.getAttribute("width")) || image.naturalWidth || 1920,
@@ -1889,6 +1900,7 @@ initTextType();
 function getRevealElements(panel) {
   if (panel.classList.contains("hero") || panel.matches("#mission")) return [];
   if (panel.matches("#services")) return [];
+  if (panel.matches("#ending")) return [];
   if (panel.matches("#works")) return [];
 
   const selectors = [":scope > *"];
@@ -1938,7 +1950,7 @@ function initSwipeSections() {
 
   gsap.registerPlugin(Observer);
 
-  const panels = [...document.querySelectorAll("main > section, body > footer")];
+  const panels = [...document.querySelectorAll("main > section")];
   const hero = document.querySelector(".hero");
   const panelByHash = new Map(
     panels.flatMap((panel, index) => {
@@ -1949,6 +1961,8 @@ function initSwipeSections() {
   const initialIndex = panelByHash.get(location.hash) ?? 0;
   let currentIndex = initialIndex;
   let animating = false;
+  let swipeInputLockedUntil = 0;
+  const swipeInputCooldown = 150;
 
   panels.forEach((panel, index) => {
     panel.classList.add("swipe-panel");
@@ -1963,6 +1977,7 @@ function initSwipeSections() {
   function updateActiveState(index, playMissionContent = true) {
     const activePanel = panels[index];
     document.body.classList.toggle("is-home", activePanel === hero);
+    document.body.classList.toggle("is-ending", activePanel.matches("#ending"));
     panels.forEach((panel, panelIndex) => {
       const active = panelIndex === index;
       panel.classList.toggle("is-active", active);
@@ -1973,7 +1988,7 @@ function initSwipeSections() {
 
     navLinks.forEach((link) => {
       const hash = link.getAttribute("href");
-      link.classList.toggle("is-active", hash === `#${activePanel.id}`);
+      link.classList.toggle("is-active", hash === getPanelHash(activePanel));
     });
 
     if (hero) {
@@ -2034,13 +2049,14 @@ function initSwipeSections() {
     const movement = direction > 0 ? 1 : -1;
     const nextContent = panelContent(nextPanel);
 
+    document.body.classList.toggle("is-ending", nextPanel.matches("#ending"));
     nextPanel.scrollTop = 0;
     if (nextPanel.classList.contains("hero")) {
       gsap.set(".hero-title-art", { clearProps: "transform,opacity,visibility" });
     }
     nextPanel.inert = false;
     nextPanel.setAttribute("aria-hidden", "false");
-    nextPanel.classList.add("is-entering");
+    if (nextPanel.matches("#ending")) nextPanel.classList.add("is-entering");
 
     gsap.set(nextPanel, {
       autoAlpha: 1,
@@ -2060,6 +2076,7 @@ function initSwipeSections() {
       onComplete: () => {
         currentIndex = nextIndex;
         animating = false;
+        swipeInputLockedUntil = performance.now() + swipeInputCooldown;
         nextPanel.classList.remove("is-entering");
         currentPanel.classList.remove("is-entering");
         gsap.set(currentPanel, { autoAlpha: 0, zIndex: 1 });
@@ -2082,6 +2099,12 @@ function initSwipeSections() {
       .to(nextPanel, {
         yPercent: 0
       }, 0);
+
+    if (nextPanel.matches("#works")) {
+      transition.call(() => {
+        nextPanel.classList.add("is-entering");
+      }, null, 0.42);
+    }
 
     if (nextPanel.matches("#mission")) {
       transition.call(() => {
@@ -2125,11 +2148,13 @@ function initSwipeSections() {
 
   function requestPanel(direction) {
     const serviceGalleryPagingLockedUntil = Number(window.__serviceGalleryPagingLockedUntil) || 0;
+    const now = performance.now();
     if (
       document.body.classList.contains("lanyard-open") ||
       document.body.classList.contains("project-modal-open") ||
       document.body.classList.contains("service-gallery-dragging") ||
-      performance.now() < serviceGalleryPagingLockedUntil
+      now < serviceGalleryPagingLockedUntil ||
+      now < swipeInputLockedUntil
     ) return;
     if (animating || canScrollActivePanel(direction)) return;
     goToPanel(currentIndex + direction, direction);
@@ -2175,36 +2200,3 @@ function initSwipeSections() {
 }
 
 initSwipeSections();
-
-if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-  const watchedFiles = ["index.html", "src/styles/main.css", "src/scripts/main.js"];
-  let signature = "";
-
-  async function getSignature() {
-    const parts = await Promise.all(
-      watchedFiles.map(async (file) => {
-        const response = await fetch(file, { method: "HEAD", cache: "no-store" });
-        return [
-          response.headers.get("last-modified"),
-          response.headers.get("content-length")
-        ].join(":");
-      })
-    );
-    return parts.join("|");
-  }
-
-  getSignature().then((value) => {
-    signature = value;
-    setInterval(async () => {
-      try {
-        const nextSignature = await getSignature();
-        if (signature && nextSignature !== signature) {
-          location.reload();
-        }
-        signature = nextSignature;
-      } catch {
-        // Preview server may be restarting.
-      }
-    }, 4000);
-  });
-}
