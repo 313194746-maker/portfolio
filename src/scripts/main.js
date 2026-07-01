@@ -2056,7 +2056,6 @@ function initSwipeSections() {
     }
     nextPanel.inert = false;
     nextPanel.setAttribute("aria-hidden", "false");
-    if (nextPanel.matches("#ending")) nextPanel.classList.add("is-entering");
 
     gsap.set(nextPanel, {
       autoAlpha: 1,
@@ -2104,6 +2103,12 @@ function initSwipeSections() {
       transition.call(() => {
         nextPanel.classList.add("is-entering");
       }, null, 0.42);
+    }
+
+    if (nextPanel.matches("#ending")) {
+      transition.call(() => {
+        nextPanel.classList.add("is-entering");
+      }, null, 0.12);
     }
 
     if (nextPanel.matches("#mission")) {
