@@ -2108,7 +2108,7 @@ function initSwipeSections() {
     if (nextPanel.matches("#ending")) {
       transition.call(() => {
         nextPanel.classList.add("is-entering");
-      }, null, 0.12);
+      }, null, 0.5);
     }
 
     if (nextPanel.matches("#mission")) {
