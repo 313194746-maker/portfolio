@@ -65,7 +65,7 @@ function initGradientBlinds() {
 
       float stripe = fract(uv.x * max(uBlindCount, 1.0));
       vec3 color = vec3(spotlight) + base - vec3(stripe);
-      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.10;
+      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.15;
 
       fragColor = vec4(color, 1.0);
     }
@@ -285,15 +285,28 @@ function initLanyardModal() {
   const context = canvas.getContext("2d");
   if (!context) return;
 
+  const qrPreview = document.createElement("button");
+  qrPreview.type = "button";
+  qrPreview.className = "lanyard-qr-preview";
+  qrPreview.setAttribute("aria-label", "关闭二维码放大预览");
+  qrPreview.innerHTML = '<img src="assets/contact/wechat-qr-preview.jpg" alt="微信二维码" />';
+  document.body.append(qrPreview);
+
   const avatarImage = new Image();
   avatarImage.decoding = "async";
+  const qrImage = new Image();
+  qrImage.decoding = "async";
   let avatarImageRequested = false;
   function requestAvatarImage() {
     if (avatarImageRequested) return;
     avatarImageRequested = true;
     avatarImage.src = "assets/profile/li-wupeng-avatar.webp";
+    qrImage.src = "assets/contact/wechat-qr.png";
   }
   avatarImage.addEventListener("load", () => {
+    if (width && height) draw();
+  }, { once: true });
+  qrImage.addEventListener("load", () => {
     if (width && height) draw();
   }, { once: true });
 
@@ -319,6 +332,7 @@ function initLanyardModal() {
   let physicsAccumulator = 0;
   let anchorX = 0;
   let prewarmed = false;
+  let qrPointerStart = null;
   const physicsStep = 1 / 60;
 
   function updateAnchorX() {
@@ -351,7 +365,7 @@ function initLanyardModal() {
 
   function resizeLanyard() {
     const rect = canvas.getBoundingClientRect();
-    const nextDpr = 1;
+    const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
     const nextWidth = Math.max(1, Math.round(rect.width));
     const nextHeight = Math.max(1, Math.round(rect.height));
     if (width === nextWidth && height === nextHeight && dpr === nextDpr) return false;
@@ -363,7 +377,7 @@ function initLanyardModal() {
     canvas.height = Math.round(height * dpr);
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "low";
+    context.imageSmoothingQuality = "high";
     updateAnchorX();
     resetSimulation();
     return true;
@@ -532,7 +546,7 @@ function initLanyardModal() {
     context.font = `700 ${Math.round(card.width * 0.052 + 2)}px Arial, sans-serif`;
     context.fillText("135 9387 4603", x + pad, y + card.height * 0.235);
     context.fillStyle = "rgba(255,255,255,0.66)";
-    context.font = `400 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
+    context.font = `500 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
     context.fillText("WUHAN · CHINA · 2026", x + pad, y + card.height * 0.272);
 
     const portraitX = x + card.width * 0.47;
@@ -553,34 +567,30 @@ function initLanyardModal() {
     context.font = `700 ${Math.round(card.width * 0.045)}px Arial, sans-serif`;
     context.fillText("Liwupeng", x + pad, y + card.height * 0.38);
     context.fillStyle = "rgba(255,255,255,0.62)";
-    context.font = `400 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
+    context.font = `500 ${Math.round(card.width * 0.03)}px Arial, sans-serif`;
     ["UI DESIGN", "UX RESEARCH", "DESIGN SYSTEM", "PROTOTYPE"].forEach((line, index) => {
       context.fillText(line, x + pad, y + card.height * (0.43 + index * 0.038));
     });
 
-    context.fillStyle = "#fff";
-    context.font = `700 ${Math.round(card.width * 0.052)}px Arial, sans-serif`;
-    context.fillText("AIG CREATOR", x + pad, y + card.height * 0.72);
-    context.fillText("& AI BUILDER", x + pad, y + card.height * 0.76);
-
     context.fillStyle = "rgba(255,255,255,0.95)";
     context.font = `700 ${Math.round(card.width * 0.052)}px Arial, sans-serif`;
-    context.fillText("UX/UI DESIGNER", x + pad, y + card.height * 0.88);
-    context.fillText("& PRODUCT BUILDER", x + pad, y + card.height * 0.92);
+    context.fillText("UX/UI DESIGNER", x + pad, y + card.height * 0.72);
+    context.fillText("& PRODUCT BUILDER", x + pad, y + card.height * 0.76);
 
+    const qrSize = card.width * 0.21;
+    const qrX = x + pad;
+    const qrY = y + card.height * 0.82;
     context.fillStyle = "#fff";
-    for (let row = 0; row < 7; row += 1) {
-      for (let col = 0; col < 3; col += 1) {
-        if ((row + col) % 3 === 0) continue;
-        const size = card.width * 0.025;
-        context.fillRect(
-          x + card.width - pad - col * size * 1.5,
-          y + card.height * 0.7 + row * size * 1.45,
-          size,
-          size
-        );
-      }
+    context.fillRect(qrX, qrY, qrSize, qrSize);
+    if (qrImage.complete && qrImage.naturalWidth) {
+      context.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
     }
+    context.fillStyle = "rgba(255,255,255,0.85)";
+    context.font = `700 ${Math.round(card.width * 0.037 + 2)}px Arial, sans-serif`;
+    context.fillText("微信与手机同号", qrX + qrSize + card.width * 0.045, qrY + qrSize * 0.42);
+    context.fillStyle = "#FFFFFF60";
+    context.font = `700 ${Math.round(card.width * 0.032)}px Arial, sans-serif`;
+    context.fillText("点击查看大图", qrX + qrSize + card.width * 0.045, qrY + qrSize * 0.72);
 
     const claspY = y - 26;
     const claspGradient = context.createLinearGradient(-18, claspY, 18, claspY + 44);
@@ -715,9 +725,29 @@ function initLanyardModal() {
     );
   }
 
+  function cardLocalPosition(position) {
+    const angle = -card.angle * 0.72;
+    const dx = position.x - card.x;
+    const dy = position.y - card.y;
+    return {
+      x: dx * Math.cos(angle) - dy * Math.sin(angle),
+      y: dx * Math.sin(angle) + dy * Math.cos(angle)
+    };
+  }
+
+  function isOverQr(position) {
+    const pad = card.width * 0.075;
+    const size = card.width * 0.21;
+    const local = cardLocalPosition(position);
+    const left = -card.width * 0.5 + pad;
+    const top = -card.height * 0.08 + card.height * 0.82;
+    return local.x >= left && local.x <= left + size && local.y >= top && local.y <= top + size;
+  }
+
   canvas.addEventListener("pointerdown", (event) => {
     const position = pointerPosition(event);
     if (!isOverCard(position)) return;
+    qrPointerStart = isOverQr(position) ? position : null;
     dragging = true;
     quietFrames = 0;
     canvas.classList.add("is-dragging");
@@ -742,14 +772,27 @@ function initLanyardModal() {
 
   function releasePointer(event) {
     if (!dragging) return;
+    const position = pointerPosition(event);
+    const shouldOpenQr =
+      event.type === "pointerup" &&
+      qrPointerStart &&
+      Math.hypot(position.x - qrPointerStart.x, position.y - qrPointerStart.y) < 8 &&
+      isOverQr(position);
     dragging = false;
     quietFrames = 0;
     canvas.classList.remove("is-dragging");
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (shouldOpenQr) {
+      qrPreview.classList.add("is-open");
+    }
+    qrPointerStart = null;
   }
 
   canvas.addEventListener("pointerup", releasePointer);
   canvas.addEventListener("pointercancel", releasePointer);
+  qrPreview.addEventListener("click", () => {
+    qrPreview.classList.remove("is-open");
+  });
 
   function openStage(event) {
     event.preventDefault();
@@ -786,6 +829,7 @@ function initLanyardModal() {
 
   function closeStage() {
     stage.classList.remove("is-open");
+    qrPreview.classList.remove("is-open");
     stage.setAttribute("aria-hidden", "true");
     contactLink.classList.remove("is-active");
     contactLink.setAttribute("aria-expanded", "false");
@@ -854,11 +898,10 @@ const bounceCards = document.querySelector(".bounce-cards");
 if (bounceCards) {
   const cards = [...bounceCards.querySelectorAll(".bounce-card")];
   const baseTransforms = [
-    "translateX(-50%) rotate(5deg) translateX(-220px)",
-    "translateX(-50%) rotate(0deg) translateX(-105px)",
-    "translateX(-50%) rotate(-5deg) translateX(0px)",
-    "translateX(-50%) rotate(5deg) translateX(105px)",
-    "translateX(-50%) rotate(-5deg) translateX(220px)"
+    "translateX(-50%) rotate(5deg) translateX(-258px)",
+    "translateX(-50%) rotate(0deg) translateX(-86px)",
+    "translateX(-50%) rotate(-5deg) translateX(86px)",
+    "translateX(-50%) rotate(5deg) translateX(258px)"
   ];
   const cardAnimations = new Map();
   let settleTimer = 0;
@@ -902,7 +945,7 @@ if (bounceCards) {
         return;
       }
 
-      const offsetX = index < hoveredIndex ? -325 : 325;
+      const offsetX = index < hoveredIndex ? -390 : 390;
       const delay = Math.abs(hoveredIndex - index) * 50;
       animateCard(card, getPushedTransform(baseTransforms[index], offsetX), delay);
     });
@@ -1486,6 +1529,7 @@ function initServiceGallery() {
   let lockedSectionScrollTop = 0;
   let galleryUnlockTimer = 0;
   let verticalRestoreFrame = 0;
+  let suppressGalleryClickUntil = 0;
   const dragClickThreshold = 8;
 
   function lockGalleryPageScroll() {
@@ -1543,6 +1587,8 @@ function initServiceGallery() {
 
   gallery.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    pressedTile = event.target.closest(".project-tile");
+    if (!pressedTile) return;
     window.cancelAnimationFrame(inertiaFrame);
     inertiaFrame = 0;
     inertiaPreviousTime = 0;
@@ -1557,8 +1603,7 @@ function initServiceGallery() {
     dragLastX = event.clientX;
     dragLastTime = event.timeStamp || performance.now();
     dragVelocity = 0;
-    pressedTile = event.target.closest(".project-tile");
-    if (pressedTile) autoplayPaused = true;
+    autoplayPaused = true;
     lockGalleryPageScroll();
     gallery.classList.add("is-dragging");
     gallery.setPointerCapture(event.pointerId);
@@ -1572,6 +1617,7 @@ function initServiceGallery() {
     if (dragDistance > dragClickThreshold) window.__serviceGalleryDragged = true;
     if (dragDistance > dragClickThreshold) lockServiceGalleryPaging(1200);
     gallery.scrollLeft = dragStartScrollLeft - deltaX;
+    normalizeGalleryLoop();
     const now = event.timeStamp || performance.now();
     const elapsed = Math.max(16, now - dragLastTime);
     const nextVelocity = (dragLastX - event.clientX) / elapsed;
@@ -1582,6 +1628,7 @@ function initServiceGallery() {
   }, { passive: false });
 
   gallery.addEventListener("wheel", (event) => {
+    if (!event.target.closest(".project-tile")) return;
     const isHorizontalGesture = Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.35;
     if (!isHorizontalGesture) return;
 
@@ -1594,19 +1641,21 @@ function initServiceGallery() {
 
   function stopDrag(event) {
     if (!dragging) return;
+    const eventTime = event.timeStamp || performance.now();
     dragging = false;
     gallery.classList.remove("is-dragging");
-    if (gallery.hasPointerCapture(event.pointerId)) gallery.releasePointerCapture(event.pointerId);
+    if (event.pointerId != null && gallery.hasPointerCapture(event.pointerId)) gallery.releasePointerCapture(event.pointerId);
     if (dragDistance > dragClickThreshold) {
       window.__serviceGalleryDragged = true;
       window.__serviceGalleryDragEndAt = performance.now();
+      suppressGalleryClickUntil = performance.now() + 700;
       deferUnlockGalleryPageScroll(1400);
-      const dragElapsed = Math.max(80, (event.timeStamp || performance.now()) - dragStartTime);
-      const averageVelocity = (dragStartX - event.clientX) / dragElapsed * 1000;
+      const dragElapsed = Math.max(80, eventTime - dragStartTime);
+      const dragDirection = Math.sign(dragStartX - dragLastX) || Math.sign(dragVelocity) || 1;
+      const averageVelocity = Math.abs(dragStartX - dragLastX) / dragElapsed * 1000;
       const releaseVelocity = dragVelocity * 1000;
-      const strongestVelocity = Math.abs(releaseVelocity) > Math.abs(averageVelocity)
-        ? releaseVelocity
-        : averageVelocity;
+      const strongestVelocity = Math.max(Math.abs(releaseVelocity), Math.abs(averageVelocity)) *
+        dragDirection;
       startGalleryInertia(strongestVelocity, dragDistance);
     } else if (
       event.type === "pointerup" &&
@@ -1653,7 +1702,7 @@ function initServiceGallery() {
       lockServiceGalleryPaging(450);
       gallery.scrollLeft += velocity * deltaSeconds;
       normalizeGalleryLoop();
-      velocity *= Math.exp(-0.72 * deltaSeconds);
+      velocity *= Math.exp(-3 * deltaSeconds);
 
       if (Math.abs(velocity) < 18) {
         inertiaFrame = 0;
@@ -1669,17 +1718,47 @@ function initServiceGallery() {
 
   gallery.addEventListener("pointerup", stopDrag);
   gallery.addEventListener("pointercancel", stopDrag);
-  gallery.addEventListener("lostpointercapture", () => {
-    if (dragging) deferUnlockGalleryPageScroll(dragDistance > dragClickThreshold ? 900 : 120);
-    dragging = false;
-    pressedTile = null;
-    gallery.classList.remove("is-dragging");
-  });
+  gallery.addEventListener("lostpointercapture", stopDrag);
+  gallery.addEventListener("click", (event) => {
+    if (!window.__serviceGalleryDragged && performance.now() >= suppressGalleryClickUntil) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
 
-  const loopColumns = columns.map((column) => {
+  function greatestCommonDivisor(a, b) {
+    while (b) {
+      const next = a % b;
+      a = b;
+      b = next;
+    }
+    return a;
+  }
+
+  function leastCommonMultiple(a, b) {
+    if (!a || !b) return Math.max(a, b);
+    return Math.abs(a * b) / greatestCommonDivisor(a, b);
+  }
+
+  const originalLoopWidths = columns.map((column) => {
+    const originals = [...column.children];
+    const first = originals[0];
+    if (!first) return 0;
+    const firstClone = first.cloneNode(true);
+    firstClone.style.visibility = "hidden";
+    firstClone.setAttribute("aria-hidden", "true");
+    column.appendChild(firstClone);
+    const width = Math.round(firstClone.offsetLeft - first.offsetLeft);
+    firstClone.remove();
+    return width;
+  });
+  const sharedLoopWidth = originalLoopWidths.reduce(leastCommonMultiple, 0);
+
+  const loopColumns = columns.map((column, index) => {
     const originals = [...column.children];
     const originalCount = originals.length;
-    const minimumChildren = originalCount * 3;
+    const originalWidth = originalLoopWidths[index] || column.scrollWidth;
+    const minimumRepeats = Math.max(3, Math.ceil((sharedLoopWidth * 2 + (gallery.clientWidth || window.innerWidth)) / Math.max(1, originalWidth)));
+    const minimumChildren = originalCount * minimumRepeats;
     while (column.children.length < minimumChildren) {
       originals.forEach((tile) => {
         if (column.children.length >= minimumChildren) return;
@@ -1707,7 +1786,7 @@ function initServiceGallery() {
       if (!first || !firstClone) return 0;
       return firstClone.offsetLeft - first.offsetLeft;
     });
-    loopWidth = Math.max(...widths, 0);
+    loopWidth = widths.reduce((width, nextWidth) => leastCommonMultiple(width, Math.round(nextWidth)), 0);
     if (loopWidth > 0 && (resetPosition || gallery.scrollLeft < 1)) gallery.scrollLeft = loopWidth;
   }
 
@@ -1764,7 +1843,7 @@ function initServiceGallery() {
       !inertiaFrame &&
       !autoplayPaused
     ) {
-      gallery.scrollLeft -= 80 * deltaSeconds;
+      gallery.scrollLeft -= 120 * deltaSeconds;
       normalizeGalleryLoop();
     }
 

@@ -600,13 +600,13 @@ body.is-ending .top-nav-shade {
   width: 100%;
   height: 100%;
   display: block;
-  cursor: grab;
+  cursor: default;
   touch-action: none;
   contain: strict;
 }
 
 #lanyard-canvas.is-dragging {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .lanyard-hint {
@@ -617,6 +617,28 @@ body.is-ending .top-nav-shade {
   font-size: 9px;
   letter-spacing: 0.14em;
   pointer-events: none;
+}
+
+.lanyard-qr-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  place-items: center;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: zoom-out;
+}
+
+.lanyard-qr-preview.is-open {
+  display: grid;
+}
+
+.lanyard-qr-preview img {
+  width: min(420px, 72vw);
+  height: auto;
+  background: #fff;
+  border-radius: 14px;
 }
 
 main {
@@ -1227,8 +1249,8 @@ main > section.mission::before {
   top: 48%;
   left: 50%;
   z-index: 1;
-  width: min(1180px, 100%);
-  height: 285px;
+  width: min(1280px, 100%);
+  height: 340px;
   translate: -50% calc(-28% - 52px);
   transform: scale(var(--cards-scale));
   transform-origin: center;
@@ -1240,7 +1262,7 @@ main > section.mission::before {
   position: absolute;
   top: 30px;
   left: 50%;
-  width: 400px;
+  width: 480px;
   aspect-ratio: 16 / 9;
   height: auto;
   border-radius: 28px;
@@ -1251,7 +1273,7 @@ main > section.mission::before {
   filter: blur(10px);
   transform: translateX(-50%) translateY(150px) rotate(-12deg) scale(0.42);
   transform-origin: 50% 85%;
-  cursor: pointer;
+  cursor: default;
   will-change: transform, opacity, filter;
   transition:
     transform 1100ms linear,
@@ -1312,7 +1334,7 @@ main > section.mission::before {
 }
 
 .bounce-cards.is-visible .bounce-card:nth-child(1) {
-  --card-x: -220px;
+  --card-x: -258px;
   --card-rotation: 5deg;
   z-index: 1;
   transform: translateX(-50%) translateY(0) rotate(var(--card-rotation)) translateX(var(--card-x)) scale(1);
@@ -1320,35 +1342,27 @@ main > section.mission::before {
 }
 
 .bounce-cards.is-visible .bounce-card:nth-child(2) {
-  --card-x: -105px;
+  --card-x: -86px;
   --card-rotation: 0deg;
-  z-index: 2;
-  transform: translateX(-50%) translateY(0) rotate(var(--card-rotation)) translateX(var(--card-x)) scale(1);
-  transition-delay: 0ms;
-}
-
-.bounce-cards.is-visible .bounce-card:nth-child(3) {
-  --card-x: 0px;
-  --card-rotation: -5deg;
   z-index: 5;
   transform: translateX(-50%) translateY(0) rotate(var(--card-rotation)) translateX(var(--card-x)) scale(1);
   transition-delay: 0ms;
 }
 
-.bounce-cards.is-visible .bounce-card:nth-child(4) {
-  --card-x: 105px;
-  --card-rotation: 5deg;
+.bounce-cards.is-visible .bounce-card:nth-child(3) {
+  --card-x: 86px;
+  --card-rotation: -5deg;
   z-index: 4;
   transform: translateX(-50%) translateY(0) rotate(var(--card-rotation)) translateX(var(--card-x)) scale(1);
-  transition-delay: 40ms;
+  transition-delay: 0ms;
 }
 
-.bounce-cards.is-visible .bounce-card:nth-child(5) {
-  --card-x: 220px;
-  --card-rotation: -5deg;
+.bounce-cards.is-visible .bounce-card:nth-child(4) {
+  --card-x: 258px;
+  --card-rotation: 5deg;
   z-index: 3;
   transform: translateX(-50%) translateY(0) rotate(var(--card-rotation)) translateX(var(--card-x)) scale(1);
-  transition-delay: 120ms;
+  transition-delay: 40ms;
 }
 
 .bounce-cards.is-visible.is-settled .bounce-card {
@@ -1365,7 +1379,7 @@ main > section.mission::before {
   padding: clamp(34px, 4.8vh, 54px) max(48px, 6vw) clamp(24px, 4vh, 44px);
   display: grid;
   align-content: center;
-  gap: clamp(8px, 1.15vh, 14px);
+  gap: 16px;
   overflow: visible;
 }
 
@@ -1442,7 +1456,7 @@ body:not(.gsap-swipe-enabled) .services:target::before {
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
-  cursor: grab;
+  cursor: default;
   touch-action: none;
   user-select: none;
   contain: layout paint;
@@ -1453,7 +1467,7 @@ body:not(.gsap-swipe-enabled) .services:target::before {
 }
 
 .service-gallery.is-dragging {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .service-gallery::after {
@@ -1562,7 +1576,7 @@ body:not(.gsap-swipe-enabled) .ending:target .ending-content {
 .service-column {
   width: max-content;
   display: flex;
-  gap: clamp(14px, 1.6vw, 24px);
+  gap: 16px;
   will-change: transform;
 }
 
@@ -1604,7 +1618,7 @@ body:not(.gsap-swipe-enabled) .ending:target .ending-content {
   overflow: hidden;
   border: 0;
   border-radius: 14px;
-  background: #090909;
+  background: #fff;
   cursor: pointer;
   box-shadow:
     0 16px 46px rgba(0, 0, 0, 0.48),
@@ -1644,6 +1658,10 @@ body:not(.gsap-swipe-enabled) .ending:target .ending-content {
 
 .project-tile:hover img {
   transform: scale(1.055);
+}
+
+.service-gallery.is-dragging .project-tile {
+  cursor: grabbing;
 }
 
 .project-tile:hover::after {
