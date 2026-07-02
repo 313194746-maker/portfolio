@@ -733,7 +733,7 @@ main > section:not(.hero) {
 .resume-profile {
   position: relative;
   min-width: 0;
-  height: min(680px, calc(100svh - var(--resume-pad-top) - var(--resume-pad-bottom) - 24px));
+  height: 680px;
   align-self: start;
   padding: var(--resume-profile-pad);
   display: flex;
