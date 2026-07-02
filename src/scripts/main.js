@@ -65,7 +65,7 @@ function initGradientBlinds() {
 
       float stripe = fract(uv.x * max(uBlindCount, 1.0));
       vec3 color = vec3(spotlight) + base - vec3(stripe);
-      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.15;
+      color += (rand(gl_FragCoord.xy + iTime) - 0.5) * 0.12;
 
       fragColor = vec4(color, 1.0);
     }
@@ -301,7 +301,7 @@ function initLanyardModal() {
     if (avatarImageRequested) return;
     avatarImageRequested = true;
     avatarImage.src = "assets/profile/li-wupeng-avatar.webp";
-    qrImage.src = "assets/contact/wechat-qr.png";
+    qrImage.src = "assets/contact/wechat-qr-small.png";
   }
   avatarImage.addEventListener("load", () => {
     if (width && height) draw();
@@ -365,7 +365,7 @@ function initLanyardModal() {
 
   function resizeLanyard() {
     const rect = canvas.getBoundingClientRect();
-    const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const nextDpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const nextWidth = Math.max(1, Math.round(rect.width));
     const nextHeight = Math.max(1, Math.round(rect.height));
     if (width === nextWidth && height === nextHeight && dpr === nextDpr) return false;
@@ -377,7 +377,7 @@ function initLanyardModal() {
     canvas.height = Math.round(height * dpr);
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
+    context.imageSmoothingQuality = "medium";
     updateAnchorX();
     resetSimulation();
     return true;
@@ -586,10 +586,10 @@ function initLanyardModal() {
       context.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
     }
     context.fillStyle = "rgba(255,255,255,0.85)";
-    context.font = `700 ${Math.round(card.width * 0.037 + 2)}px Arial, sans-serif`;
+    context.font = `700 ${Math.round(card.width * 0.037 + 3)}px Arial, sans-serif`;
     context.fillText("微信与手机同号", qrX + qrSize + card.width * 0.045, qrY + qrSize * 0.42);
     context.fillStyle = "#FFFFFF60";
-    context.font = `700 ${Math.round(card.width * 0.032)}px Arial, sans-serif`;
+    context.font = `700 ${Math.round(card.width * 0.032 + 2)}px Arial, sans-serif`;
     context.fillText("点击查看大图", qrX + qrSize + card.width * 0.045, qrY + qrSize * 0.72);
 
     const claspY = y - 26;
@@ -1276,11 +1276,8 @@ function initProjectModal() {
     if (!frames.length) return;
 
     loadProjectFrame(frames[0]);
-    window.setTimeout(() => {
-      if (modal.classList.contains("is-open")) loadProjectFrame(frames[1]);
-    }, 180);
     if (!("IntersectionObserver" in window)) {
-      frames.slice(2).forEach(loadProjectFrame);
+      frames.slice(1).forEach(loadProjectFrame);
       return;
     }
 
@@ -1292,10 +1289,10 @@ function initProjectModal() {
           modalImageObserver?.unobserve(entry.target);
         });
       },
-      { root: modalMedia, rootMargin: "1800px 0px", threshold: 0.01 }
+      { root: modalMedia, rootMargin: "600px 0px", threshold: 0.01 }
     );
 
-    frames.slice(2).forEach((frame) => modalImageObserver.observe(frame));
+    frames.slice(1).forEach((frame) => modalImageObserver.observe(frame));
   }
 
   function renderSingleImage(image) {
@@ -1629,7 +1626,7 @@ function initServiceGallery() {
 
   gallery.addEventListener("wheel", (event) => {
     if (!event.target.closest(".project-tile")) return;
-    const isHorizontalGesture = Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.35;
+    const isHorizontalGesture = Math.abs(event.deltaX) > Math.abs(event.deltaY) * 0.35;
     if (!isHorizontalGesture) return;
 
     event.preventDefault();
@@ -1725,20 +1722,6 @@ function initServiceGallery() {
     event.stopImmediatePropagation();
   }, true);
 
-  function greatestCommonDivisor(a, b) {
-    while (b) {
-      const next = a % b;
-      a = b;
-      b = next;
-    }
-    return a;
-  }
-
-  function leastCommonMultiple(a, b) {
-    if (!a || !b) return Math.max(a, b);
-    return Math.abs(a * b) / greatestCommonDivisor(a, b);
-  }
-
   const originalLoopWidths = columns.map((column) => {
     const originals = [...column.children];
     const first = originals[0];
@@ -1751,7 +1734,7 @@ function initServiceGallery() {
     firstClone.remove();
     return width;
   });
-  const sharedLoopWidth = originalLoopWidths.reduce(leastCommonMultiple, 0);
+  const sharedLoopWidth = Math.max(...originalLoopWidths, 0);
 
   const loopColumns = columns.map((column, index) => {
     const originals = [...column.children];
@@ -1786,7 +1769,7 @@ function initServiceGallery() {
       if (!first || !firstClone) return 0;
       return firstClone.offsetLeft - first.offsetLeft;
     });
-    loopWidth = widths.reduce((width, nextWidth) => leastCommonMultiple(width, Math.round(nextWidth)), 0);
+    loopWidth = Math.max(...widths.map(Math.round), 0);
     if (loopWidth > 0 && (resetPosition || gallery.scrollLeft < 1)) gallery.scrollLeft = loopWidth;
   }
 
